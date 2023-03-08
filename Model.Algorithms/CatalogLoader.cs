@@ -208,6 +208,11 @@ public class CatalogLoader
       node.Name = string.IsNullOrEmpty(name) ? drive.Name : name;
     }
 
+    if (node is Catalog catalog)
+    {
+      catalog.Description ??= "Catálogo de scripts.";
+    }
+
     if (node is Product product)
     {
       var versionTag = FilePathParser.ParseVersionTag(filePath);

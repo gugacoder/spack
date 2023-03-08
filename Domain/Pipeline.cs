@@ -22,6 +22,11 @@ public class Pipeline : IMetaNode
   public string Name { get; set; } = string.Empty;
 
   /// <summary>
+  /// Conecção utilizada na execução do scripts do pipeline.
+  /// </summary>
+  public Connection Connection { get; set; } = null!;
+
+  /// <summary>
   /// Blocos de scripts executados em sequência dentro do pipeline.
   /// </summary>
   public NodeList<Stage> Stages { get; set; }

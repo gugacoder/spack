@@ -35,29 +35,41 @@ public class PipelineBuilder
   /// <returns>
   /// Lista de pipelines de execução.
   /// </returns>
-  public List<Pipeline> BuildPipeline()
+  public List<Pipeline> BuildPipelines()
   {
     // Selecionado os scripts que estão habilitados agrupados por produto.
     var selection = (
+
+      // Selecionando apenas os nodos com ancestors habilitados.
       from node in this.nodes
       where node.GetAncestorsAndSelf<IFileNode>().All(n => n.Enabled)
+
+      // Selecionando apenas os scripts habilitados.
       from script in node.GetDescendantsAndSelf<Script>()
       where script.Enabled
-      // group by product
-      group script by script.GetProduct() into g
-      select (product: g.Key, scripts: g.ToList())
+
+      from connectionName in script.GetPackage()!.Connections
+
+        // Agrupando por produto e conexão.
+      group script by (product: script.GetProduct(), connectionName) into g
+
+      select (g.Key, scripts: g.ToList())
     ).ToList();
 
     // Criando os pipelines para cada produto.
     var pipelines = selection
-      .Select(s => CreatePipeline(s.product, s.scripts))
+      .Select(s => CreatePipeline(s.Key.product, s.Key.connectionName, s.scripts))
       .ToList();
 
     return pipelines;
   }
 
-  private Pipeline CreatePipeline(Product product, List<Script> scripts)
+  private Pipeline CreatePipeline(Product product, string connectionName, List<Script> scripts)
   {
+    var connections = product.GetCatalog()!.Connections;
+    var connection = connections.FirstOrDefault(c => c.Name == connectionName)
+      ?? throw new Exception($"Conexão não encontrada: {connectionName}");
+
     // Criando os estágios de execução para cada produto e agrupado pela
     // precedência do módulo e do pacote.
     // Os estágios serão executados em sequência.
@@ -83,6 +95,7 @@ public class PipelineBuilder
 
     var pipeline = new Pipeline();
     pipeline.Name = $"{product.Name} - {product.Version}";
+    pipeline.Connection = connection;
     pipeline.Stages.AddRange(stages);
 
     return pipeline;
@@ -90,22 +103,15 @@ public class PipelineBuilder
 
   private Stage CreateStage(List<Script> scripts)
   {
-    var stepTags = new[] {
-      "-pretran",
-      "-pre",
-      "",
-      "-pos",
-      "-postran"
-    };
     var scriptTags = scripts.Select(script => script.Tag).Distinct().ToArray();
 
-    var steps = stepTags
+    var steps = Steps.AllSteps
       .Where(tag => scriptTags.Contains(tag))
       .Select(tag =>
         new Step()
         {
           Tag = tag,
-          Transactional = !tag.Contains("tran"),
+          Transactional = Steps.IsTransactional(tag),
           Scripts = scripts.Where(script => script.Tag == tag).ToList()
         })
       .ToList();
@@ -114,14 +120,7 @@ public class PipelineBuilder
     for (int i = 0; i < steps.Count; i++)
     {
       var step = steps[i];
-      step.Name = step.Tag switch
-      {
-        "-pretran" => "Pré-Transação",
-        "-postran" => "Pós-Transação",
-        "-pre" => "Pré",
-        "-pos" => "Pós",
-        _ => "Principal"
-      };
+      step.Name = Steps.NameStep(step.Tag);
     }
 
     var stage = new Stage { Steps = steps };

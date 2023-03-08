@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using SPack.Domain;
 using SPack.Library;
 
@@ -41,16 +42,15 @@ public class AsyncDependencyDetector : IAsyncVisitor
         .Where(line => !string.IsNullOrWhiteSpace(line));
 
       var requiredBy = comments
-        .Where(line => line.Contains("@requerido-por"))
-        .Select(line => line.Split("@requerido-por").Last().Trim())
-        .SelectMany(line => line.Split(',').Select(word => word.Trim()));
+        .Where(line => line.Contains("@requisito-para"))
+        .SelectMany(line => ParseAnnotation(line));
 
       var dependantOf = comments
         .Where(line => line.Contains("@depende-de"))
-        .Select(line => line.Split("@depende-de").Last().Trim())
+        .SelectMany(line => ParseAnnotation(line))
         .Concat(comments
             .Where(line => line.Contains("@depende-apenas-de"))
-            .Select(line => line.Split("@depende-apenas-de").Last().Trim())
+            .SelectMany(line => ParseAnnotation(line))
         )
         .SelectMany(line => line.Split(',').Select(word => word.Trim()));
 
@@ -122,5 +122,20 @@ public class AsyncDependencyDetector : IAsyncVisitor
       var word = tokens[i] + "." + tokens[i + 1];
       yield return word;
     }
+  }
+
+  public string[] ParseAnnotation(string line)
+  {
+    //  @requisito-para: esquema.tabela, esquema.outra_tabela
+    //  @depende-de esquema.tabela, esquema.outra_tabela
+    //  @depende-apenas-de:  esquema.tabela, esquema.outra_tabela
+
+    var match = Regex.Match(line, @"@[\w-]+[\s:]+(.+)");
+    if (!match.Success) return Array.Empty<string>();
+
+    var content = match.Groups[1].Value;
+    var values = content.Split(',').Select(v => v.Trim()).ToArray();
+
+    return values;
   }
 }

@@ -7,6 +7,8 @@ namespace SPack.Domain;
 /// </summary>
 public class Connection : IMetaNode
 {
+  private ConnectionStringFactory? _factory;
+
   public Connection()
   {
     this.Faults = new(this);
@@ -45,14 +47,12 @@ public class Connection : IMetaNode
   /// <summary>
   /// Descrição da base de dados.
   /// </summary>
-  /// <value></value>
   public string? Description { get; set; }
 
   /// <summary>
   /// Driver de base de dados.
   /// </summary>
-  /// <value></value>
-  public string Provider { get; set; } = Providers.SqlServer;
+  public string Provider { get; set; } = nameof(Providers.SqlServer);
 
   /// <summary>
   /// Indica se a seção está habilitada.
@@ -64,7 +64,15 @@ public class Connection : IMetaNode
   /// Fábrica de conexão de base de dados baseado em consulta SQL.
   /// </summary>
   /// <value></value>
-  public ConnectionFactory? Factory { get; set; }
+  public ConnectionStringFactory? ConnectionStringFactory
+  {
+    get => _factory;
+    set
+    {
+      _factory = value;
+      if (_factory != null) _factory.Parent = this;
+    }
+  }
 
   /// <summary>
   /// Falhas ocorridas durante a criação ou execução da conexão.
@@ -74,21 +82,21 @@ public class Connection : IMetaNode
 
   public IEnumerable<INode> GetChildren()
   {
-    if (Factory != null) yield return Factory;
+    if (ConnectionStringFactory != null) yield return ConnectionStringFactory;
     foreach (var item in Faults) yield return item;
   }
 
   public void Accept(IVisitor visitor)
   {
     visitor.Visit(this);
-    Factory?.Accept(visitor);
+    ConnectionStringFactory?.Accept(visitor);
     Faults.ForEach(f => f.Accept(visitor));
   }
 
   public async Task AcceptAsync(IAsyncVisitor visitor)
   {
     await visitor.VisitAsync(this);
-    await (Factory?.AcceptAsync(visitor) ?? Task.CompletedTask);
+    await (ConnectionStringFactory?.AcceptAsync(visitor) ?? Task.CompletedTask);
     await Task.WhenAll(Faults.Select(item => item.AcceptAsync(visitor)));
   }
 

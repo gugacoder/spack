@@ -31,7 +31,7 @@ public class Product : IFileNode
   /// <summary>
   /// Caminho virtual do nodo dentro da árvore de nodos.
   /// </summary>
-  public string Path => $"{Parent?.Path}/{Name}/{Version}";
+  public string Path => $"/{Name}/{Version}";
 
   /// <summary>
   /// Nome do nó.

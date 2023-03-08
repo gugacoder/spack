@@ -16,6 +16,6 @@ public interface IVisitor
   void Visit(Stage node) { }
   void Visit(Step node) { }
   void Visit(Connection node) { }
-  void Visit(ConnectionFactory node) { }
+  void Visit(ConnectionStringFactory node) { }
   void Visit(Fault node) { }
 }

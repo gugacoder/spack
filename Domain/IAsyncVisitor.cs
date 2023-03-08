@@ -15,6 +15,6 @@ public interface IAsyncVisitor
   Task VisitAsync(Stage node) => Task.CompletedTask;
   Task VisitAsync(Step step) => Task.CompletedTask;
   Task VisitAsync(Connection node) => Task.CompletedTask;
-  Task VisitAsync(ConnectionFactory node) => Task.CompletedTask;
+  Task VisitAsync(ConnectionStringFactory node) => Task.CompletedTask;
   Task VisitAsync(Fault node) => Task.CompletedTask;
 }

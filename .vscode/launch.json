@@ -10,7 +10,16 @@
       "request": "launch",
       "preLaunchTask": "build",
       "program": "${workspaceFolder}/bin/Debug/net6.0/SPack.dll",
-      "args": [],
+      "args": [
+        // "encode", "S4NDB0X"
+        // "help"
+        "open", "Sandbox",
+        // "list", "connection",
+        "migrate",
+        "--script", "/Sandbox/1.0.0-trunk",
+        "--connection", "api: Server=172.27.0.121\\SQL2k16;Database=DBdirector_Bahamas_29;User ID=sl;Password=123;Timeout=10;TrustServerCertificate=True",
+        "--connection", "sandbox: Server=172.27.0.121\\SQL2k16;Database=DBmercadologic_Bahamas_29;User ID=sl;Password=123;Timeout=10;TrustServerCertificate=True",
+      ],
       "cwd": "${workspaceFolder}",
       "console": "internalConsole",
       "stopAtEntry": false
