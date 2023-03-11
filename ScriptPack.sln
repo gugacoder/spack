@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScriptPack", "ScriptPack\ScriptPack.csproj", "{0E782F1C-8DFA-4B6C-80FA-73A905681175}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SPack", "SPack\SPack.csproj", "{A6CF65FF-5A2D-48D8-9D79-CC372D5ABBE7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0E782F1C-8DFA-4B6C-80FA-73A905681175}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E782F1C-8DFA-4B6C-80FA-73A905681175}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E782F1C-8DFA-4B6C-80FA-73A905681175}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E782F1C-8DFA-4B6C-80FA-73A905681175}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6CF65FF-5A2D-48D8-9D79-CC372D5ABBE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6CF65FF-5A2D-48D8-9D79-CC372D5ABBE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6CF65FF-5A2D-48D8-9D79-CC372D5ABBE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6CF65FF-5A2D-48D8-9D79-CC372D5ABBE7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

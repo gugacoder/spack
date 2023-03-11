@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>spack</AssemblyName>
+    <RootNamespace>ScriptPack</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ScriptPack/ScriptPack.csproj" />
+  </ItemGroup>
+
+</Project>

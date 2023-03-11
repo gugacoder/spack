@@ -2,52 +2,52 @@
   "C# Class": {
     "prefix": "csharp-class",
     "body": [
-        "namespace ${WORKSPACE_NAME}.${RELATIVE_FILEPATH/[\\\/][^\\\/]+$//};"
-      , ""
-      , "public class ${TM_FILENAME_BASE}"
-      , "{"
-      , "   ${1}"
-      , "}"
-      , ""
+      "namespace ${RELATIVE_FILEPATH/(.*)\\/(.*)[\\/][^\\/]+$/$1.$2/};",
+      "",
+      "public class ${TM_FILENAME_BASE}",
+      "{",
+      "   ${1}",
+      "}",
+      ""
     ],
     "description": "Creates a new C# class with the default namespace"
   },
   "C# Interface": {
     "prefix": "csharp-iface",
     "body": [
-        "namespace ${WORKSPACE_NAME}.${RELATIVE_FILEPATH/[\\\/][^\\\/]+$//};"
-      , ""
-      , "public interface ${TM_FILENAME_BASE}"
-      , "{"
-      , "   ${1}"
-      , "}"
-      , ""
+      "namespace ${RELATIVE_FILEPATH/(.*)\\/(.*)[\\/][^\\/]+$/$1.$2/};",
+      "",
+      "public interface ${TM_FILENAME_BASE}",
+      "{",
+      "   ${1}",
+      "}",
+      ""
     ],
     "description": "Creates a new C# class with the default namespace"
   },
   "C# Record": {
     "prefix": "csharp-record",
     "body": [
-        "namespace ${WORKSPACE_NAME}.${RELATIVE_FILEPATH/[\\\/][^\\\/]+$//};"
-      , ""
-      , "public record ${TM_FILENAME_BASE}"
-      , "{"
-      , "   ${1}"
-      , "}"
-      , ""
+      "namespace ${RELATIVE_FILEPATH/(.*)\\/(.*)[\\/][^\\/]+$/$1.$2/};",
+      "",
+      "public record ${TM_FILENAME_BASE}",
+      "{",
+      "   ${1}",
+      "}",
+      ""
     ],
     "description": "Creates a new C# class with the default namespace"
   },
   "C# Enum": {
     "prefix": "csharp-enum",
     "body": [
-        "namespace ${WORKSPACE_NAME}.${RELATIVE_FILEPATH/[\\\/][^\\\/]+$//};"
-      , ""
-      , "public enum ${TM_FILENAME_BASE}"
-      , "{"
-      , "   ${1}"
-      , "}"
-      , ""
+      "namespace ${RELATIVE_FILEPATH/(.*)\\/(.*)[\\/][^\\/]+$/$1.$2/};",
+      "",
+      "public enum ${TM_FILENAME_BASE}",
+      "{",
+      "   ${1}",
+      "}",
+      ""
     ],
     "description": "Creates a new C# class with the default namespace"
   }
