@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace ScriptPack.Helpesrs
+namespace ScriptPack.Helpers
 {
   /// <summary>
   /// Classe estática responsável por criptografar e descriptografar texto.
@@ -8,7 +8,7 @@ namespace ScriptPack.Helpesrs
   public static class Crypto
   {
     private const string Prefix = "enc:";
-    private const string EncryptionKey = nameof(Crypto);
+    private const string EncryptionKey = nameof(ScriptPack.Helpers.Crypto);
 
     /// <summary>
     /// Criptografa o texto especificado.

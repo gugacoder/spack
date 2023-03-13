@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using ScriptPack.FileSystem;
+using ScriptPack.Model;
 
 namespace ScriptPack.Domain;
 
@@ -14,9 +16,14 @@ public class CatalogNode : AbstractFileNode
   }
 
   /// <summary>
-  /// As bases de dados utilizadas pelo sistema.
+  /// O driver de acesso ao sistema de arquivos do catálogo.
   /// </summary>
   [JsonIgnore]
+  public IDrive? Drive { get; set; }
+
+  /// <summary>
+  /// As bases de dados utilizadas pelo sistema.
+  /// </summary>
   public NodeList<ConnectionNode> Connections
   {
     get => Get<NodeList<ConnectionNode>>();

@@ -32,9 +32,5 @@ public class StepNode : AbstractNode
   /// Cada script é definido pela classe ScriptNode e é adicionado à lista de scripts
   /// através do método Add() da classe List.
   /// </remarks>
-  public List<ScriptNode> Scripts
-  {
-    get => Get<List<ScriptNode>>();
-    set => Set(value);
-  }
+  public List<ScriptNode> Scripts { get; set; } = new();
 }

@@ -12,12 +12,6 @@ public interface IFileNode : INode
   string? Description { get; set; }
 
   /// <summary>
-  /// Obtém ou define um valor que indica se o nodo do arquivo está habilitado.
-  /// Se estiver desabilitado, o conteúdo do nodo não será executado.
-  /// </summary>
-  bool Enabled { get; set; }
-
-  /// <summary>
   /// Obtém ou define o caminho relativo do arquivo referente.
   /// </summary>
   string? FilePath { get; set; }

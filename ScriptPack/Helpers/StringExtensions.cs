@@ -24,8 +24,13 @@ public static class StringExtensions
   /// </returns>
   public static bool Like(this string @string, string searchPattern)
   {
-    var pattern = "^" + Regex.Escape(searchPattern)
-        .Replace("\\*", ".*").Replace("\\?", ".") + "$";
-    return Regex.IsMatch(@string, pattern, RegexOptions.IgnoreCase);
+    if (searchPattern.Contains("*") || searchPattern.Contains("?"))
+    {
+      var pattern = "^" + Regex.Escape(searchPattern)
+          .Replace("\\*", ".*").Replace("\\?", ".") + "$";
+      return Regex.IsMatch(@string, pattern, RegexOptions.IgnoreCase);
+    }
+
+    return @string.Equals(searchPattern, StringComparison.OrdinalIgnoreCase);
   }
 }

@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
@@ -33,6 +34,12 @@ public abstract class AbstractNode : INode
   public virtual string Name { get; set; } = "";
 
   /// <summary>
+  /// Indica se o conteúdo da seção está habilitado.
+  /// Se estiver desabilitado, o conteúdo da seção não será executado.
+  /// </summary>
+  public virtual bool Enabled { get; set; } = true;
+
+  /// <summary>
   /// O caminho virtual do nodo dentro da árvore de nodos.
   /// </summary>
   [JsonIgnore]
@@ -54,9 +61,9 @@ public abstract class AbstractNode : INode
   public virtual IEnumerable<INode> Children()
   {
     foreach (var item in children.Values.OfType<INode>()) yield return item;
-    foreach (var list in children.Values.OfType<IEnumerable<INode>>())
+    foreach (var list in children.Values.OfType<IEnumerable>())
     {
-      foreach (var item in list) yield return item;
+      foreach (var item in list.OfType<INode>()) yield return item;
     }
   }
 
@@ -125,7 +132,8 @@ public abstract class AbstractNode : INode
   /// <typeparam name="T">O tipo de valor da propriedade.</typeparam>
   /// <param name="value">O novo valor da propriedade.</param>
   /// <param name="name">O nome da propriedade.</param>
-  protected virtual void Set<T>(T value, [CallerMemberName] string? name = null)
+  protected virtual void Set<T>(T? value,
+      [CallerMemberName] string? name = null)
   {
     if (name == null) throw new ArgumentNullException(nameof(name));
 
@@ -133,10 +141,21 @@ public abstract class AbstractNode : INode
     var current = Get<T>(name);
     current?.GetType().GetProperty("Parent")?.SetValue(current, null);
 
-    children[name] = value!;
+    if (value == null)
+    {
+      children.Remove(name);
+      return;
+    }
 
-    /// Adota o nodo definido-se como o pai dele.
-    value?.GetType().GetProperty("Parent")?.SetValue(value, this);
+    children[name] = value;
+
+    // Adota o nodo definido-se como o pai dele.
+    var parentProperty = value.GetType().GetProperty("Parent")
+        ?? throw new InvalidOperationException(
+            $"A propriedade Parent não foi encontrada no tipo: "
+                + (value.GetType().Name ?? "null"));
+
+    parentProperty.SetValue(value, this);
   }
 
   #endregion

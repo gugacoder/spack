@@ -23,6 +23,12 @@ public interface INode
   string Name { get; set; }
 
   /// <summary>
+  /// Obtém ou define um valor que indica se o nodo do arquivo está habilitado.
+  /// Se estiver desabilitado, o conteúdo do nodo não será executado.
+  /// </summary>
+  bool Enabled { get; set; }
+
+  /// <summary>
   /// Obtém o caminho virtual do nodo dentro da hierarquia de nodos.
   /// </summary>
   string Path { get; }

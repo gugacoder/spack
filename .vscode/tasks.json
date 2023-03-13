@@ -36,6 +36,24 @@
         "${workspaceFolder}/SPack/SPack.csproj"
       ],
       "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "test",
+        "${workspaceFolder}/ScriptPack.Tests/ScriptPack.Tests.csproj",
+        "--verbosity",
+        "normal",
+        "--logger",
+        "trx;LogFileName=TestResults.trx"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
     }
   ]
 }

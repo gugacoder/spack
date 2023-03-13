@@ -12,28 +12,16 @@ public class ProductNode : AbstractFileNode
   /// </summary>
   public ProductNode()
   {
-    this.Modules = new();
+    this.Versions = new();
   }
-
-  /// <summary>
-  /// O caminho virtual do nodo dentro da árvore de nodos.
-  /// </summary>
-  [JsonIgnore]
-  public override string Path => $"{Parent?.Path}/{Name}/{Version}";
-
-  /// <summary>
-  /// Obtém ou define a versão do produto segundo o padrão semântico.
-  /// Referência: https://semver.org/
-  /// </summary>
-  public string Version { get; set; } = "";
 
   /// <summary>
   /// Obtém ou define os módulos do produto.
   /// </summary>
   [JsonIgnore]
-  public NodeList<ModuleNode> Modules
+  public NodeList<VersionNode> Versions
   {
-    get => Get<NodeList<ModuleNode>>();
+    get => Get<NodeList<VersionNode>>();
     set => Set(value);
   }
 }

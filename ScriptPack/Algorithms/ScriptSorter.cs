@@ -5,7 +5,7 @@ namespace ScriptPack.Algorithms;
 /// <summary>
 /// Classe responsável por ordenar scripts por dependência.
 /// </summary>
-public class ScriptSorterByDependency : IScriptSorter
+public class ScriptSorter : IScriptSorter
 {
   /// <summary>
   /// Ordena a lista de scripts com base em suas dependências.
@@ -22,7 +22,8 @@ public class ScriptSorterByDependency : IScriptSorter
   }
 
   /// <summary>
-  /// Compara dois scripts por suas dependências.
+  /// Compara dois scripts segundo a ordem de comparação definida em seus
+  /// pacotes.
   /// </summary>
   /// <param name="a">
   /// O primeiro script a ser comparado.
@@ -36,16 +37,21 @@ public class ScriptSorterByDependency : IScriptSorter
   /// 1: O script a é maior que o script b.
   /// -1: O script a é menor que o script b.
   /// </returns>
+  /// <remarks>
+  /// Se qualquer dos pacotes de a e b tiver a propriedade Order definida como
+  /// Alpha, a comparação será feita pelo nome dos scripts. Caso contrário, a
+  /// comparação será feita por dependência.
+  /// </remarks>
   /// <exception cref="FaultException">
   /// É lançada uma exceção em caso de dependência cíclica.
   /// </exception>
-  public static int CompareScripts(ScriptNode a, ScriptNode b)
+  private int CompareScripts(ScriptNode a, ScriptNode b)
   {
-    if (a.Dependencies.Contains(b) && b.Dependencies.Contains(a))
-      throw new FaultException(Fault.EmitCircularDependency(a, b));
-
-    if (a.Dependencies.Contains(b)) return 1;
-    if (b.Dependencies.Contains(a)) return -1;
-    return 0;
+    var byName =
+        a.Ancestor<PackageNode>()?.Order == Orders.Alpha
+        || b.Ancestor<PackageNode>()?.Order == Orders.Alpha;
+    return byName
+        ? ScriptSorterByName.CompareScripts(a, b)
+        : ScriptSorterByDependency.CompareScripts(a, b);
   }
 }

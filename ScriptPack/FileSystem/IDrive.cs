@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace ScriptPack.Model;
+namespace ScriptPack.FileSystem;
 
 /// <summary>
 /// Abstração de um navegador de arquivos para padronizar a navegação seja no
@@ -28,8 +28,7 @@ public interface IDrive
   /// O caminho deve ser relativo ao diretório raiz do drive.
   /// </param>
   /// <param name="searchPattern">
-  /// Padrão de busca para os arquivos a serem enumerados.
-  /// O padrão é "*.*".
+  /// O filtro de pesquisa de nome com suporte ao caractere curinga *.
   /// </param>
   /// <param name="searchOption">
   /// Determina se a busca deve ser recursiva.
@@ -48,8 +47,7 @@ public interface IDrive
   /// O caminho deve ser relativo ao diretório raiz do drive.
   /// </param>
   /// <param name="searchPattern">
-  /// Padrão de busca para os arquivos a serem enumerados.
-  /// O padrão é "*.*".
+  /// O filtro de pesquisa de nome com suporte ao caractere curinga *.
   /// </param>
   /// <param name="searchOption">
   /// Determina se a busca deve ser recursiva.

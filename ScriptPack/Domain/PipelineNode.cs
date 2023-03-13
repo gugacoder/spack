@@ -19,11 +19,7 @@ public class PipelineNode : AbstractNode
   /// Obtém ou define a conexão utilizada na execução dos scripts do pipeline.
   /// </summary>
   [JsonIgnore]
-  public ConnectionNode Connection
-  {
-    get => Get<ConnectionNode>();
-    set => Set(value);
-  }
+  public ConnectionNode Connection { get; set; } = null!;
 
   /// <summary>
   /// Obtém ou define os blocos de scripts executados em sequência dentro do

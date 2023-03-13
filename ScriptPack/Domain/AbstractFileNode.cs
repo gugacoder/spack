@@ -13,12 +13,6 @@ public abstract class AbstractFileNode : AbstractNode, IFileNode
   public virtual string? Description { get; set; }
 
   /// <summary>
-  /// Indica se o conteúdo da seção está habilitado.
-  /// Se estiver desabilitado, o conteúdo da seção não será executado.
-  /// </summary>
-  public virtual bool Enabled { get; set; }
-
-  /// <summary>
   /// O caminho relativo do arquivo referente.
   /// </summary>
   [JsonIgnore]

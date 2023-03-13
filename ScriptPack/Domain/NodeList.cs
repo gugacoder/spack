@@ -22,6 +22,15 @@ public class NodeList<T> : ObservableCollection<T> where T : INode
   }
 
   /// <summary>
+  /// Cria uma nova instância da classe NodeList.
+  /// </summary>
+  public NodeList(IEnumerable<T> items)
+    : base(items)
+  {
+    CollectionChanged += OnCollectionChanged!;
+  }
+
+  /// <summary>
   /// Obtém ou define o nodo pai da lista.
   /// </summary>
   public INode? Parent

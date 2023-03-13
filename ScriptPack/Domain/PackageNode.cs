@@ -31,7 +31,7 @@ public class PackageNode : AbstractFileNode
   /// utilizadas para execução do pacote.
   /// </summary>
   [JsonIgnore]
-  public List<string> Connections { get; set; } = new();
+  public List<string> TargetConnections { get; set; } = new();
 
   /// <summary>
   /// Obtém ou define os scripts do pacote.

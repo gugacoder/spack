@@ -1,10 +1,9 @@
 ﻿using System.Text.Json;
 using ScriptPack.Algorithms;
 using ScriptPack.Domain;
+using ScriptPack.FileSystem;
 using ScriptPack.Helpers;
 using ScriptPack.Model;
-// using ScriptPack.Model.Algorithms;
-
 
 var loader = new CatalogLoader();
 var catalogs = await loader.ReadCatalogAsync(new FileDrive("Sandbox"));
@@ -12,15 +11,30 @@ var catalogs = await loader.ReadCatalogAsync(new FileDrive("Sandbox"));
 var repository = new RepositoryNode();
 repository.Catalogs.AddRange(catalogs);
 
-var navigator = new NodeNavigator(repository);
+var navigator = new RepositoryNavigator(repository);
+navigator.RootNode = repository.Catalogs.First();//.Products.First().Versions.First().Modules.First();
 
-navigator.ChangeInto("/SandboxApp");
+// Console.WriteLine($"---0");
+// var paths = navigator.List("**/*.*");
+// Console.WriteLine($"Count: {paths.Length}");
+// paths.ForEach(path => Console.WriteLine(path));
 
-var list = navigator.List("/SandboxApp/Sandbox/1.0.0-trunk/Sandbox/api");
-foreach (var item in list)
-{
-  Console.WriteLine(item.Path);
-}
+
+
+
+var pipelineBuilder = new PipelineBuilder();
+pipelineBuilder.AddScriptsFromNodes(navigator.ListNodes("**/*.sql"));
+var pipelines = pipelineBuilder.BuildPipelines();
+
+
+navigator.RootNode = pipelines.First();
+
+Console.WriteLine($"---0");
+var paths = navigator.List("**/*");
+Console.WriteLine($"Count: {paths.Length}");
+paths.ForEach(path => Console.WriteLine(path));
+
+
 
 
 

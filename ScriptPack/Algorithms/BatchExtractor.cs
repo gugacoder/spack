@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using ScriptPack.Domain;
+using ScriptPack.FileSystem;
 
 namespace ScriptPack.Algorithms;
 
@@ -19,17 +20,19 @@ public class BatchExtractor
   /// comando "GO". Aplicável apenas para scripts do SQLServer. Para os demais
   /// SGDBs, retorna um único bloco com o script completo.
   /// </summary>
-  /// <param name="scriptReader">
-  /// Um objeto <c>StreamReader</c> para leitura do script SQL.
-  /// </param>
+  /// <param name="script">O script a ser extraído.</param>
   /// <returns>
   /// Um array de objetos <c>Batch</c> representando os blocos extraídos.
   /// </returns>
-  public async Task<Batch[]> ExtactBatchesAsync(StreamReader scriptReader)
+  public async Task<Batch[]> ExtractBatchesAsync(ScriptNode script)
   {
     var batches = new List<Batch>();
 
     string? line;
+
+    using var scriptStream = script.OpenScriptFile();
+    using var scriptReader = new StreamReader(scriptStream);
+
     while ((line = await scriptReader.ReadLineAsync()) != null)
     {
       // Checa se a linha contém o comando "GO" seguido de um número opcional.

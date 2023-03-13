@@ -26,17 +26,18 @@ public class ConnectionOptimizer
       //
       // Nota sobre 'ARITHABORT ON':
       //
-      // A configuração padrão ARITHABORT de SQL Server Management Studio é ON.
-      // Os aplicativos cliente que definem ARITHABORT como OFF podem receber planos de
-      // consulta diferentes, dificultando a solução de problemas de consultas executadas
-      // insatisfatoriamente. Ou seja, a mesma consulta pode ser executada rapidamente no
-      // Management Studio, mas lentamente no aplicativo. Ao solucionar problemas de
-      // consultas com Management Studio, sempre faça a correspondência com a configuração
-      // ARITHABORT do cliente.
+      // A configuração padrão ARITHABORT do SQL Server Management Studio é ON.
+      // Quando os aplicativos clientes definem ARITHABORT como OFF, podem
+      // receber planos de consulta diferentes, o que pode dificultar a solução
+      // de problemas de consultas que são executadas insatisfatoriamente.
+      // Em outras palavras, uma mesma consulta pode ser executada rapidamente
+      // no Management Studio, mas de forma lenta no aplicativo.
+      // Ao solucionar problemas de consultas usando o Management Studio, é
+      // importante levar em consideração a configuração ARITHABORT do cliente.
       //
-      // Referência:
-      // -   https://msdn.microsoft.com/pt-br/library/ms190306.aspx
-      //
+      // Fonte:
+      // - https://msdn.microsoft.com/pt-br/library/ms190306.aspx
+      //      
 
       using var command = sqlConnection.CreateCommand();
       command.CommandType = System.Data.CommandType.Text;

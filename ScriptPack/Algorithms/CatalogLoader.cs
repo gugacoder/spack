@@ -1,9 +1,45 @@
 using System.Text.Json;
 using ScriptPack.Domain;
+using ScriptPack.FileSystem;
 using ScriptPack.Helpers;
 using ScriptPack.Model;
 
 namespace ScriptPack.Algorithms;
+
+//
+//  NT-01 (Nota Técnica #1)
+//
+//  O algoritmo abaixo é responsável por carregar os catálogos de scripts na
+//  sequência catálogo -> produto -> versão -> módulo -> pacote -> script.
+//
+//  Em geral, existem arquivos de definição de todos estes nodos exceto para
+//  definição do produto. Para fins de facilitade de uso, o arquivo do produto,
+//  chamado de "product.json", é o mesmo arquivo de definição de versão.
+//
+//  Os arquivos gerais são:
+//
+//  -   Catálogo: "catalog.json" (obrigatório)
+//  -   Versão: "product.json" (opcional)
+//  -   Módulo: "module.json" (opcional)
+//  -   Pacote: "package.json" (opcional)
+//
+//  Exemplo:
+//      /catalogo.json
+//      /MeuProduto/tags/1.0.0/product.json
+//      /MeuProduto/tags/1.0.0/MeuModulo/module.json
+//      /MeuProduto/tags/1.0.0/MeuModulo/MeuPacote/package.json
+//      /MeuProduto/trunk/product.json
+//      /MeuProduto/trunk/MeuModulo/module.json
+//      /MeuProduto/trunk/MeuModulo/MeuPacote/package.json
+//
+//  Para resolver o problema de falta de definição de produto, o algoritmo
+//  abaixo carrega as versões a partir do arquivo e não carrega o arquivo de
+//  produto a priori.
+//
+//  Na etapa de finalização da estrtura de catálogo, quando as relações de
+//  parentesco de nodos é criada, o algoritmo agrupa as versões e carrega um
+//  produto para cada grupo com base no arquivo da versão mais recente.
+//  
 
 /// <summary>
 /// Utilitário para carregamento de catálogo a partir de uma pasta de scripts,
@@ -20,7 +56,7 @@ public class CatalogLoader
   /// O ScriptPack é organizado em produto -> módulo -> pacote -> script.
   /// 
   /// Esta é a estrutura obrigatória final do catálogo.
-  /// Porém, não é ncessário definir explicitamente arquivos JSON para cada
+  /// Porém, não é necessário definir explicitamente arquivos JSON para cada
   /// um destes componentes.
   /// 
   /// Este algoritmo se encarrega de detectar quais arquivos JSON estão
@@ -41,8 +77,22 @@ public class CatalogLoader
   /// </returns>
   public async Task<List<CatalogNode>> ReadCatalogAsync(IDrive drive)
   {
+    //
+    // Leia a NT-01 no início deste arquivo para entender esta parte.
+    //
+    // Note que não estamos carregando os produtos. Os arquivos de produtos,
+    // chamados de "product.json", ocorrem várias vezes na estrtura de
+    // arquivos, uma vez para cada versão do produto. No mesmo arquivo é
+    // definido o nome do produto e o número de versão.
+    //
+    // O que fazemos é carregar os arquivos de produtos diretamente nas
+    // instancias de versão e posteriormente criamos as instâncias de
+    // produto pelo agrupamento destas versões, assim termos apenas um arquivo
+    // de produto por produto e não um arquivo de produto por versão.
+    // 
     var catalogs = await ReadNodesAsync<CatalogNode>(drive);
-    var products = await ReadNodesAsync<ProductNode>(drive);
+    var products = new List<ProductNode>();
+    var versions = await ReadNodesAsync<VersionNode>(drive);
     var modules = await ReadNodesAsync<ModuleNode>(drive);
     var packages = await ReadNodesAsync<PackageNode>(drive);
     var scripts = await ReadNodesAsync<ScriptNode>(drive);
@@ -50,15 +100,37 @@ public class CatalogLoader
     foreach (var script in scripts)
     {
       await AdoptScriptIntoPackage(drive, script,
-          packages, modules, products, catalogs);
+          packages, modules, versions, products, catalogs);
     }
 
+    //
+    // Leia a NT-01 no início deste arquivo para entender esta parte.
+    //
+    // Depois de carregar produtos com base em versões podemos modificar os
+    // nomes das versões para que reflitam a versão do produto.
+    //
+    versions.ForEach(v => v.Name = v.Version);
+
+    // Obtendo apenas catálogos com pelo menos um script definido.
+    catalogs = catalogs.Where(c => c.Descendants<ScriptNode>().Any()).ToList();
+    catalogs.ForEach(c => c.Drive = drive);
     return catalogs;
   }
 
+  /// <summary>
+  /// Adota um script em um pacote existente ou cria um novo pacote com base
+  /// em um módulo existente ou cria um novo módulo com base em um produto
+  /// existente ou cria um novo produto com base em um catálogo existente.
+  /// </summary>
+  /// <remarks>
+  /// Durante a execução deste método, a estrtura de árvore de um script é
+  /// organizada e associada. O resultado final da execução deste método é
+  /// uma árvore de scripts completa, do produto aos scripts.
+  /// </remarks>
   private async Task AdoptScriptIntoPackage(IDrive drive, ScriptNode script,
       List<PackageNode> packages, List<ModuleNode> modules,
-      List<ProductNode> products, List<CatalogNode> catalogs)
+      List<VersionNode> versions, List<ProductNode> products,
+      List<CatalogNode> catalogs)
   {
     if (script?.FilePath == null)
       throw new InvalidOperationException(
@@ -88,11 +160,20 @@ public class CatalogLoader
             package?.FilePath?.StartsWith(n.FileFolder!) == true
             || script?.FilePath?.StartsWith(n.FileFolder!) == true);
 
-    var product = module?.Parent as ProductNode ?? products
+    var version = module?.Parent as VersionNode ?? versions
         .Where(n => n.FilePath != null)
         .OrderByDescending(n => n.FilePath!.Length)
         .FirstOrDefault(n =>
             module?.FilePath?.StartsWith(n.FileFolder!) == true
+            || package?.FilePath?.StartsWith(n.FileFolder!) == true
+            || script?.FilePath?.StartsWith(n.FileFolder!) == true);
+
+    var product = version?.Parent as ProductNode ?? products
+        .Where(n => n.FilePath != null)
+        .OrderByDescending(n => n.FilePath!.Length)
+        .FirstOrDefault(n =>
+            version?.FilePath?.StartsWith(n.FileFolder!) == true
+            || module?.FilePath?.StartsWith(n.FileFolder!) == true
             || package?.FilePath?.StartsWith(n.FileFolder!) == true
             || script?.FilePath?.StartsWith(n.FileFolder!) == true);
 
@@ -101,21 +182,34 @@ public class CatalogLoader
         .OrderByDescending(n => n.FilePath!.Length)
         .FirstOrDefault(n =>
             product?.FilePath?.StartsWith(n.FileFolder!) == true
+            || version?.FilePath?.StartsWith(n.FileFolder!) == true
             || module?.FilePath?.StartsWith(n.FileFolder!) == true
             || package?.FilePath?.StartsWith(n.FileFolder!) == true
             || script?.FilePath?.StartsWith(n.FileFolder!) == true);
 
+    if (version == null)
+    {
+      version = await ReadNodeFromFileAsync<VersionNode>(drive,
+          catalog!.FilePath!);
+      versions.Add(version);
+    }
+
     if (product == null)
     {
+      //
+      // Leia a NT-01 no início deste arquivo para entender esta parte.
+      //
+      // Note que o arquivo de produto é lido a partir do arquivo de versão.
+      //
       product = await ReadNodeFromFileAsync<ProductNode>(drive,
-          catalog!.FilePath!);
+          version!.FilePath!);
       products.Add(product);
     }
 
     if (module == null)
     {
       module = await ReadNodeFromFileAsync<ModuleNode>(drive,
-          product!.FilePath!);
+          version!.FilePath!);
       modules.Add(module);
     }
 
@@ -126,8 +220,12 @@ public class CatalogLoader
       packages.Add(package);
     }
 
+    //
+    // Acrescentando relações de parentesco.
+    //
     if (product.Parent == null) catalog!.Products.Add(product);
-    if (module.Parent == null) product.Modules.Add(module);
+    if (version.Parent == null) product!.Versions.Add(version);
+    if (module.Parent == null) version.Modules.Add(module);
     if (package.Parent == null) module.Packages.Add(package);
     if (script!.Parent == null) package.Scripts.Add(script!);
   }
@@ -148,32 +246,44 @@ public class CatalogLoader
     where T : IFileNode, new()
   {
     var nodes = new List<T>();
+    string[] filePaths;
 
     if (typeof(T) == typeof(ScriptNode))
     {
-      var filePaths = drive.GetFiles("/", "*.sql", SearchOption.AllDirectories);
+      filePaths = drive.GetFiles("/", "*.sql", SearchOption.AllDirectories);
 
       foreach (var filePath in filePaths)
       {
         var node = await ReadScriptFromFileAsync(drive, filePath);
         nodes.Add((T)(object)node);
       }
+      return nodes;
     }
-    else
-    {
-      var typename = typeof(T).Name;
-      if (typename.EndsWith("Node"))
-      {
-        typename = typename.Substring(0, typename.Length - "Node".Length);
-      }
-      var filename = $"{typename.ToLower()}.json";
-      var filePaths = drive.GetFiles("/", filename, SearchOption.AllDirectories);
 
-      foreach (var filePath in filePaths)
-      {
-        var node = await ReadNodeFromFileAsync<T>(drive, filePath);
-        nodes.Add(node);
-      }
+    //
+    // Leia a NT-01 no início deste arquivo para entender esta parte.
+    //
+    // Note que o arquivo para leitura da versão é o mesmo arquivo do produto.
+    // Isso acontece porque não temos um arquivo separado para definição do
+    // produto e definição de suas versões. Na verdade temos apenas os arquivos
+    // definindo suas versões.
+    //
+    var typeName = typeof(T) == typeof(VersionNode)
+        ? nameof(ProductNode)
+        : typeof(T).Name;
+
+    if (typeName.EndsWith("Node"))
+    {
+      typeName = typeName.Substring(0, typeName.Length - "Node".Length);
+    }
+
+    var fileName = $"{typeName.ToLower()}.json";
+
+    filePaths = drive.GetFiles("/", fileName, SearchOption.AllDirectories);
+    foreach (var filePath in filePaths)
+    {
+      var node = await ReadNodeFromFileAsync<T>(drive, filePath);
+      nodes.Add(node);
     }
 
     return nodes;
@@ -221,7 +331,7 @@ public class CatalogLoader
       catalog.Description ??= "Catálogo de scripts.";
     }
 
-    if (node is ProductNode product)
+    if (node is VersionNode product)
     {
       var versionTag = _pathPatternInterpreter.ExtractVersionTag(filePath);
       if (!string.IsNullOrEmpty(versionTag))

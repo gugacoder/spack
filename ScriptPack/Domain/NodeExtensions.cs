@@ -1,3 +1,5 @@
+using ScriptPack.Model;
+
 namespace ScriptPack.Domain;
 
 /// <summary>
