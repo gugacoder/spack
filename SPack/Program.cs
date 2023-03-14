@@ -1,284 +1,215 @@
-﻿using System.Text.Json;
-using ScriptPack.Algorithms;
-using ScriptPack.Domain;
-using ScriptPack.FileSystem;
-using ScriptPack.Helpers;
-using ScriptPack.Model;
+﻿using SPack.Commands;
 
-var loader = new CatalogLoader();
-var catalogs = await loader.ReadCatalogAsync(new FileDrive("Sandbox"));
+await RunAsync(args);
 
-var repository = new RepositoryNode();
-repository.Catalogs.AddRange(catalogs);
+/// <summary>
+/// Executa um comando com base nos argumentos passados na linha de comando.
+/// </summary>
+/// <param name="args">Os argumentos passados para o programa.</param>
+async Task RunAsync(string[] args)
+{
+  try
+  {
+    var options = new
+    {
+      help = new Switch(Long: true, 'h'),
+      encode = new Option(),
+      open = new Option(),
+      list = new Option(),
+      migrate = new Switch(),
+      scripts = new OptionList(Long: true, 's'),
+      connections = new OptionList(Long: true, 'c')
+    };
 
-var navigator = new RepositoryNavigator(repository);
-navigator.RootNode = repository.Catalogs.First();//.Products.First().Versions.First().Modules.First();
+    ParseArgs(args, options);
 
-// Console.WriteLine($"---0");
-// var paths = navigator.List("**/*.*");
-// Console.WriteLine($"Count: {paths.Length}");
-// paths.ForEach(path => Console.WriteLine(path));
+    var catalog = options.open.On ? options.open.Value : "";
+
+    ICommand command = options switch
+    {
+      { help: { On: true } }
+          => new HelpCommand(),
+
+      { encode: { On: true } }
+          => new EncodeCommand { Token = options.encode.Value },
+
+      { list: { On: true } }
+          => new ListCommand
+          {
+            Catalog = catalog,
+            SearchPattern = options.list.Value
+          },
+
+      { migrate: { On: true } }
+          => new MigrateCommand
+          {
+            Catalog = options.open.Value,
+            Scripts = options.scripts.Items,
+            Connections = options.connections.Items
+          },
+
+      _ => throw new ArgumentException(
+          "USO INCORRETO! Nenhuma ação indicada. " +
+          "Use --help para mais detalhes.")
+    };
+
+    await command.RunAsync();
+
+  }
+  catch (Exception ex)
+  {
+    Console.Error.WriteLine(ex.Message);
+  }
+}
+
+/// <summary>
+/// Analisa os argumentos passados para o programa e os mapeia para as ações,
+/// opções e parâmetros correspondentes.
+/// </summary>
+/// <param name="args">Os argumentos passados para o programa.</param>
+/// <param name="options">
+/// Um objeto com as opções, ações e argumentos esperados.
+/// </param>
+/// <remarks>
+/// Os argumentos podem ser passados de duas formas:
+/// 1. Com a opção completa, precedida de dois hífens, como "--help".
+/// 2. Com a opção abreviada, precedida de um hífen, como "-h".
+/// </remarks>
+/// <exception cref="Exception">
+/// Lançada quando um argumento desconhecido é passado.
+/// </exception>
+void ParseArgs(string[] args, object options)
+{
+  if (args.Length == 0)
+    throw new ArgumentException("USO INCORRETO! Nenhum argumento informado.");
+
+  for (var i = 0; i < args.Length; i++)
+  {
+    var arg = args[i];
+    try
+    {
+
+      //
+      // Determinando a instância do argumento declarado.
+      //
+
+      IArgument? argument = null;
+
+      if (arg.StartsWith("--"))
+      {
+        var value = options
+            .GetType()
+            .GetProperty(arg.TrimStart('-'))?
+            .GetValue(options)
+                as IArgument;
+        if (value?.Long == true) argument = value;
+      }
+      else if (arg.StartsWith("-"))
+      {
+        argument = options
+            .GetType()
+            .GetProperties()
+            .Select(x => x.GetValue(options))
+            .OfType<IArgument>()
+            .SingleOrDefault(x => x.Short == arg[1]);
+      }
+      else
+      {
+        var value = options
+            .GetType()
+            .GetProperty(arg)?
+            .GetValue(options)
+                as IArgument;
+        if (value?.Long == false) argument = value;
+      }
+
+      if (argument == null)
+        throw new ArgumentException($"Argumento desconhecido: {arg}");
+
+      //
+      // Ativando o uso da opção.
+      //
+
+      argument.On = true;
+
+      if (argument is Switch)
+        continue;
+
+      //
+      // A opção existe um valor. Verificando se o valor foi informado.
+      //
+
+      if (args.Length <= i + 1)
+        throw new IndexOutOfRangeException(
+            $"USO INCORRETO! Valor do argumento não informado: {arg}");
+
+      var argValue = args[++i];
+
+      //
+      // Realizando o parsing do argumento
+      //
+
+      if (argument is Option opt)
+      {
+        opt.GetType().GetProperty("Value")?.SetValue(opt, argValue);
+        continue;
+      }
+
+      if (argument is OptionList optList)
+      {
+        var items = argValue
+            .Split(',')
+            .Select(x => x.Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+        optList.GetType().GetProperty("Items")?.SetValue(optList, items);
+        continue;
+      }
+    }
+    catch (ArgumentException) { throw; }
+    catch (IndexOutOfRangeException) { throw; }
+    catch (Exception ex)
+    {
+      throw new ArgumentException(
+          $"USO INCORRETO! Valor do argumento não informado: {arg}", ex);
+    }
+  }
+}
 
 
+interface IArgument
+{
+  bool Long { get; set; }
+  char? Short { get; set; }
+  bool On { get; set; }
+}
+
+record Switch(
+    bool Long = false, char? Short = null, bool On = false
+    ) : IArgument
+{
+  public bool Long { get; set; } = Long;
+  public char? Short { get; set; } = Short;
+  public bool On { get; set; } = On;
+}
 
 
-var pipelineBuilder = new PipelineBuilder();
-pipelineBuilder.AddScriptsFromNodes(navigator.ListNodes("**/*.sql"));
-var pipelines = pipelineBuilder.BuildPipelines();
+record Option(
+    bool Long = false, char? Short = null, bool On = false,
+    string Value = ""
+    ) : IArgument
+{
+  public bool Long { get; set; } = Long;
+  public char? Short { get; set; } = Short;
+  public bool On { get; set; } = On;
+};
 
-
-navigator.RootNode = pipelines.First();
-
-Console.WriteLine($"---0");
-var paths = navigator.List("**/*");
-Console.WriteLine($"Count: {paths.Length}");
-paths.ForEach(path => Console.WriteLine(path));
-
-
-
-
-
-// Switch help = new();
-// Option open = new();
-// Option list = new();
-// Switch migrate = new();
-// Option encode = new();
-// Option decode = new();
-// OptionList scripts = new();
-// OptionList connections = new();
-
-// if (args.Length == 0)
-// {
-//   Console.Error.WriteLine("USO INCORRETO! Nenhum argumento informado.");
-//   return;
-// }
-
-// for (var i = 0; i < args.Length; i++)
-// {
-//   var arg = args[i];
-//   try
-//   {
-//     if (arg == "help" || arg == "-h" || arg == "-?" || arg == "/?") { help = new Switch(true); continue; }
-//     if (arg == "open") { open = new Option(true, args[++i]); continue; }
-//     if (arg == "list") { list = new Option(true, args[++i]); continue; }
-//     if (arg == "migrate") { migrate = new Switch(true); continue; }
-//     if (arg == "encode") { encode = new Option(true, args[++i]); continue; }
-//     if (arg == "decode") { decode = new Option(true, args[++i]); continue; }
-//     if (arg == "--script" || arg == "-s") { (scripts = scripts.On ? scripts : new OptionList(true, new())).Values.Add(args[++i]); continue; }
-//     if (arg == "--connection" || arg == "-d") { (connections = connections.On ? connections : new OptionList(true, new())).Values.Add(args[++i]); continue; }
-//     else
-//     {
-//       Console.Error.WriteLine($"USO INCORRETO! Argumento desconhecido: {arg}");
-//       return;
-//     }
-//   }
-//   catch (IndexOutOfRangeException)
-//   {
-//     Console.Error.WriteLine($"USO INCORRETO! Valor do argumento não informado: {arg}");
-//     return;
-//   }
-//   catch (Exception ex)
-//   {
-//     Console.Error.WriteLine($"Falha processando o argumento: {arg}");
-//     Console.Error.WriteLine("Causa:");
-//     Console.Error.WriteLine(ex.GetStackMessage());
-//     return;
-//   }
-// }
-
-// if (help.On)
-// {
-//   var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-//   using var stream = assembly.GetManifestResourceStream("ScriptPack.Assets.HELP.info");
-//   if (stream == null)
-//   {
-//     Console.Error.WriteLine("FALHA! O arquivo de ajuda LEIAME.md não foi distribuído corretamente com a aplicação.");
-//     return;
-//   }
-//   using var reader = new StreamReader(stream);
-//   var content = reader.ReadToEnd();
-//   Console.WriteLine(content);
-//   return;
-// }
-
-// if (encode.On)
-// {
-//   var text = encode.Value!;
-//   var encoded = Crypto.Encrypt(text);
-//   Console.WriteLine(encoded);
-//   return;
-// }
-
-// if (decode.On)
-// {
-//   var text = decode.Value!;
-//   var decoded = Crypto.Decrypt(text);
-//   Console.WriteLine(decoded);
-//   return;
-// }
-
-// var source = open.On ? open.Value! : ".";
-// var drive = Drive.Get(source);
-// var repositoryBuilder = new RepositoryBuilder();
-// repositoryBuilder.AddDrive(drive);
-// repositoryBuilder.AddDependencyDetector();
-// var repository = await repositoryBuilder.BuildRepositoryAsync();
-
-// if (list.On)
-// {
-//   var objectName = list.Value!;
-//   if (objectName == "directory")
-//   {
-//     var nodes = repository.Descendants<IFileNode>();
-//     foreach (var node in nodes)
-//     {
-//       Console.WriteLine(node.Path);
-//     }
-//     return;
-//   }
-//   if (objectName == "connection")
-//   {
-//     var descendants = repository.Descendants<ConnectionNode>();
-//     foreach (var connection in descendants)
-//     {
-//       var binding = connection.BoundTo == null ? "" : $", vinculado à base {connection.BoundTo}";
-//       var suggestion = string.IsNullOrEmpty(connection.DefaultDatabaseName) ? "" : $", nome sugerido: {connection.DefaultDatabaseName}";
-//       var description = string.IsNullOrEmpty(connection.Description) ? "" : $" - {connection.Description}";
-//       Console.WriteLine($"{connection.Name} ({connection.Provider}{binding}{suggestion}){description}");
-//     }
-//     return;
-//   }
-//   if (objectName == "catalog")
-//   {
-//     var descendants = repository.Descendants<CatalogNode>();
-//     foreach (var catalog in descendants)
-//     {
-//       var description = string.IsNullOrEmpty(catalog.Description) ? "" : $" - {catalog.Description}";
-//       Console.WriteLine($"{catalog.Name} ({catalog.FilePath}){description}");
-//     }
-//     return;
-//   }
-//   if (objectName == "product")
-//   {
-//     var descendants = repository.Descendants<ProductNode>();
-//     foreach (var product in descendants)
-//     {
-//       var description = string.IsNullOrEmpty(product.Description) ? "" : $" - {product.Description}";
-//       Console.WriteLine($"{product.Path}{description}");
-//     }
-//     return;
-//   }
-//   if (objectName == "module")
-//   {
-//     var descendants = repository.Descendants<ModuleNode>();
-//     foreach (var module in descendants)
-//     {
-//       var description = string.IsNullOrEmpty(module.Description) ? "" : $" - {module.Description}";
-//       Console.WriteLine($"{module.Path}{description}");
-//     }
-//     return;
-//   }
-//   if (objectName == "package")
-//   {
-//     var descendants = repository.Descendants<PackageNode>();
-//     foreach (var package in descendants)
-//     {
-//       var pckageConnections = string.Join(", ", package.Connections);
-//       var description = string.IsNullOrEmpty(package.Description) ? "" : $" - {package.Description}";
-//       Console.WriteLine($"{package.Path} ({pckageConnections}){description}");
-//     }
-//     return;
-//   }
-//   if (objectName == "script")
-//   {
-//     var descendants = repository.Descendants<ScriptNode>();
-//     foreach (var script in descendants)
-//     {
-//       var tag = string.IsNullOrEmpty(script.Tag) ? "" : $" ({script.Tag})";
-//       var description = string.IsNullOrEmpty(script.Description) ? "" : $" - {script.Description}";
-//       Console.WriteLine($"{script.Path}{tag}{description}");
-//     }
-//     return;
-//   }
-//   Console.Error.WriteLine($"USO INCORRETO! Objeto desconhecido: {objectName}");
-//   return;
-// }
-
-// if (migrate.On)
-// {
-//   if (!scripts.On || scripts.Values?.Any() != true)
-//   {
-//     Console.Error.WriteLine("USO INCORRETO! Nenhum script foi selecionado para migração.");
-//     return;
-//   }
-
-//   var pipelineBuilder = new PipelineBuilder();
-//   var connectionInstances = repository.Descendants<ConnectionNode>().ToArray();
-
-//   foreach (var connection in connections.Values)
-//   {
-//     // A string de conexão informada no argumento de linha de comando tem a
-//     // forma "connection:connectionString", por isso, é necessário separar
-//     // o nome do banco de dados da string de conexão propriamente dita.
-
-//     var tokens = connection.Split(":");
-//     var connectionName = tokens[0].Trim();
-//     var connectionString = string.Join(":", tokens.Skip(1)).Trim();
-
-//     if (string.IsNullOrEmpty(connectionName) || string.IsNullOrEmpty(connectionString))
-//     {
-//       Console.Error.WriteLine($"USO INCORRETO! Conexão inválida: {connectionString}");
-//       return;
-//     }
-
-//     // Atualizando a fábrica de conexão da base de dados com a string de conexão obtida.
-//     var connectionInstance = connectionInstances.FirstOrDefault(d => d.Name == connectionName);
-//     if (connectionInstance == null)
-//     {
-//       Console.Error.WriteLine($"USO INCORRETO! Base de dados desconhecida: {connectionName}");
-//       return;
-//     }
-
-//     connectionInstance.ConnectionStringFactory = new ConnectionStringFactoryNode { ConnectionString = connectionString };
-//   }
-
-//   var nodeLocator = new NodeLocator(repository);
-//   foreach (var script in scripts.Values)
-//   {
-//     var node = nodeLocator.LocateNode(script);
-//     pipelineBuilder.AddScripts(node);
-//   }
-
-//   var pipelines = pipelineBuilder.BuildPipelines();
-
-//   var migrantBuilder = new MigrantBuilder();
-//   migrantBuilder.AddDrive(drive);
-//   migrantBuilder.AddConnection(connectionInstances.ToArray());
-//   migrantBuilder.AddPipeline(pipelines.ToArray());
-
-//   var migrants = migrantBuilder.BuildMigrant();
-
-//   foreach (var migrant in migrants)
-//   {
-//     migrant.OnMigrate += (sender, e) =>
-//     {
-//       Console.WriteLine($"Migrando {e.Script.Path} para {e.Pipeline.Connection.Name}...");
-//     };
-//     migrant.OnMigrateError += (sender, e) =>
-//     {
-//       Console.Error.WriteLine($"ERRO! {e.Script?.Path} não pode ser migrado para {e.Pipeline.Connection.Name}.");
-//       Console.Error.WriteLine($"CAUSA: {e.Exception.Message}");
-//       Console.Error.WriteLine(e.Exception.StackTrace);
-//     };
-//     migrant.OnMigrateSuccess += (sender, e) =>
-//     {
-//       Console.WriteLine($"SUCESSO! {e.Script.Path} foi migrado para {e.Pipeline.Connection.Name}.");
-//     };
-
-//     await migrant.MigrateAsync();
-//   }
-// }
-
-// record Switch(bool On = false);
-// record Option(bool On = false, string? Value = null);
-// record OptionList(bool On = false, List<string> Values = null!);
+record OptionList(
+    bool Long = false, char? Short = null, bool On = false,
+    List<string> Items = null!
+    ) : IArgument
+{
+  public bool Long { get; set; } = Long;
+  public char? Short { get; set; } = Short;
+  public bool On { get; set; } = On;
+};

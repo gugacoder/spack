@@ -12,8 +12,10 @@
       // If you have changed target frameworks, make sure to update the program path.
       "program": "${workspaceFolder}/SPack/bin/Debug/net6.0/spack.dll",
       "args": [
+        // "-h"
+        // "encode", "password",
         "open", "Sandbox",
-        "list", "directory"
+        "list", "**"
       ],
       "cwd": "${workspaceFolder}/SPack",
       // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console

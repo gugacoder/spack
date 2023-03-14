@@ -55,37 +55,77 @@ public class DatabaseConnector
               $"Fábrica de configuração de conexão não encontrada: " +
               $"{connection.Name}");
 
-    if (connectionStringFactory.ConnectionString != null)
-      return connectionStringFactory.ConnectionString;
+    var connectionString = connectionStringFactory.ConnectionString;
+    if (connectionString == null)
+    {
+      //
+      //  Usando a string de conexão de outra fábrica de conexão.
+      //
+      var targetConnectionName = connectionStringFactory.Connection
+          ?? throw new Exception(
+                $"A configuração da fábrica de conexão não é válida: " +
+                $"{connection.Name}");
 
-    //
-    //  Usando a string de conexão de outra fábrica de conexão.
-    //
-    var targetConnectionName = connectionStringFactory.Connection
-        ?? throw new Exception(
-              $"A configuração da fábrica de conexão não é válida: " +
-              $"{connection.Name}");
+      var targetConnection = _availableConnections
+          .FirstOrDefault(c => c.Name == targetConnectionName)
+          ?? throw new Exception(
+                $"Fábrica de configuração de conexão não encontrada: " +
+                $"{targetConnectionName}");
 
-    var targetConnection = _availableConnections
-        .FirstOrDefault(c => c.Name == targetConnectionName)
-        ?? throw new Exception(
-              $"Fábrica de configuração de conexão não encontrada: " +
-              $"{targetConnectionName}");
+      if (string.IsNullOrEmpty(connectionStringFactory.Query))
+        return await CreateConnectionStringAsync(targetConnection);
 
-    if (string.IsNullOrEmpty(connectionStringFactory.Query))
-      return await CreateConnectionStringAsync(targetConnection);
+      //
+      //  Como existe uma consulta SQL expecificada, vamos usá-la para obter
+      //  a string de conexão.
+      //
+      connectionString = await RetrieveConnectionStringFromDatabaseAsync(
+          targetConnection, connectionStringFactory.Query);
+    }
 
-    //
-    //  Como existe uma consulta SQL expecificada, vamos usá-la para obter
-    //  a string de conexão.
-    //
-    var connectionString = await RetrieveConnectionStringFromDatabaseAsync(
-        targetConnection, connectionStringFactory.Query);
+    if (connectionString == null)
+      throw new Exception(
+          $"A string de conexão não foi encontrada: " +
+          $"{connection.Name}");
 
-    return connectionString
-        ?? throw new Exception(
-            $"A string de conexão não foi encontrada: " +
-            $"{connection.Name}");
+    connectionString = AppendCommonProperties(connection, connectionString);
+
+    return connectionString;
+  }
+
+  /// <summary>
+  /// Adiciona propriedades comuns a uma string de conexão de banco de dados, se
+  /// elas não estiverem presentes.
+  /// As propriedades comuns são "Application Name" e, para conexões SQL Server,
+  /// "Timeout" e "TrustServerCertificate".
+  /// </summary>
+  /// <param name="connectionString">
+  /// A string de conexão a ser aprimorada.
+  /// </param>
+  /// <returns>A string de conexão aprimorada.</returns>
+  private string AppendCommonProperties(ConnectionNode connection,
+      string connectionString)
+  {
+    var parameters = connectionString.Split(';').ToList();
+
+    if (!parameters.Any(p => p.StartsWith("Application Name=")))
+    {
+      parameters.Add("Application Name=ScriptPack");
+    }
+
+    if (Providers.GetProviderName(connection.Provider) == Providers.SqlServer)
+    {
+      if (!parameters.Any(p => p.StartsWith("Timeout=")))
+      {
+        parameters.Add("Timeout=10");
+      }
+      if (!parameters.Any(p => p.StartsWith("TrustServerCertificate=")))
+      {
+        parameters.Add("TrustServerCertificate=true");
+      }
+    }
+
+    return string.Join(";", parameters);
   }
 
   /// <summary>

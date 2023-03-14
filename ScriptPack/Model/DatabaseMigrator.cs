@@ -220,19 +220,19 @@ public class DatabaseMigrator
   /// </summary>
   public class ErrorEventArgs : EventArgs
   {
-    public ErrorEventArgs(Exception cause, StepNode? step = null,
+    public ErrorEventArgs(Exception exception, StepNode? step = null,
         ScriptNode? script = null, Batch? batch = null)
     {
       this.Step = step;
       this.Script = script;
-      this.Cause = cause;
+      this.Exception = exception;
       this.Batch = batch;
     }
 
     /// <summary>
     /// A exceção que causou o erro.
     /// </summary>
-    public Exception Cause { get; }
+    public Exception Exception { get; }
 
     /// <summary>
     /// A etapa onde ocorreu o erro.
