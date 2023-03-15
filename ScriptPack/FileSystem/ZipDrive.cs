@@ -89,8 +89,6 @@ public class ZipDrive : IDrive
   {
     path = GetPath(path);
 
-    var items = new List<string>();
-
     using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
         ZipArchiveMode.Read);
 
@@ -107,14 +105,14 @@ public class ZipDrive : IDrive
             && e.FullName.Count(f => f == '/') > path.Count(c => c == '/')));
     }
 
-    items.AddRange(
-      entries
+    var items = entries
         .Select(e => Path.GetDirectoryName(e.FullName)!)
         .Distinct()
         .Where(d => d != path)
-      );
+        .Distinct()
+        .ToArray();
 
-    return MakeRelative(items.ToArray());
+    return MakeRelative(items);
   }
 
   /// <summary>
@@ -135,8 +133,6 @@ public class ZipDrive : IDrive
   {
     path = GetPath(path);
 
-    var items = new List<string>();
-
     using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
         ZipArchiveMode.Read);
 
@@ -153,9 +149,9 @@ public class ZipDrive : IDrive
             && e.FullName.Count(f => f == '/') > path.Count(c => c == '/')));
     }
 
-    items.AddRange(entries.Select(e => e.FullName));
+    var items = entries.Select(e => e.FullName).Distinct().ToArray();
 
-    return MakeRelative(items.ToArray());
+    return MakeRelative(items);
   }
 
   /// <summary>
@@ -225,7 +221,7 @@ public class ZipDrive : IDrive
   /// <summary>
   /// Abre um arquivo do arquivo ZIP em modo de leitura.
   /// </summary>
-  public Stream OpenFile(string path)
+  public async Task<Stream> OpenFileAsync(string path)
   {
     path = GetPath(path);
 
@@ -233,13 +229,29 @@ public class ZipDrive : IDrive
         ZipArchiveMode.Read);
     var entry = archive.GetEntry(path);
 
-    return entry?.Open() ?? throw new FileNotFoundException();
+    var stream = entry?.Open() ?? throw new FileNotFoundException();
+
+    MemoryStream? buffer = null;
+    try
+    {
+      buffer = new MemoryStream();
+
+      await stream.CopyToAsync(buffer);
+
+      buffer.Position = 0;
+      return buffer;
+    }
+    catch
+    {
+      buffer?.Dispose();
+      throw;
+    }
   }
 
   /// <summary>
   /// Lê um arquivo do arquivo ZIP.
   /// </summary>
-  public TextReader ReadFile(string path, Encoding? encoding = null)
+  public async Task<TextReader> ReadFileAsync(string path, Encoding? encoding = null)
   {
     path = GetPath(path);
 
@@ -247,25 +259,21 @@ public class ZipDrive : IDrive
         ZipArchiveMode.Read);
     var entry = archive.GetEntry(path);
 
-    return new StreamReader(
-      entry?.Open() ?? throw new FileNotFoundException()
-        , encoding ?? Encoding.UTF8);
+    var stream = await OpenFileAsync(path);
+    var reader = new StreamReader(stream, encoding ?? Encoding.UTF8);
+
+    return reader;
   }
 
   /// <summary>
   /// Lê todo o conteúdo de um arquivo do arquivo ZIP de forma assíncrona.
   /// </summary>
-  public Task<string> ReadAllTextAsync(string path, Encoding? encoding = null)
+  public async Task<string> ReadAllTextAsync(string path, Encoding? encoding = null)
   {
     path = GetPath(path);
-
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Read);
-    var entry = archive.GetEntry(path);
-
-    return new StreamReader(
-      entry?.Open() ?? throw new FileNotFoundException()
-        , encoding ?? Encoding.UTF8).ReadToEndAsync();
+    using var reader = await ReadFileAsync(path, encoding);
+    var text = await reader.ReadToEndAsync();
+    return text;
   }
 
   /// <summary>

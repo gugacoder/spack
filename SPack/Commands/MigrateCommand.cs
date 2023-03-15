@@ -49,12 +49,11 @@ public class MigrateCommand : ICommand
     //
     // Abrindo o catálogo.
     //
-    var catalogOpener = new RepositoryOpener();
-    var catalog = await catalogOpener.OpenRepositoryAsync(this.CatalogPath);
+    var repositoryOpener = new RepositoryOpener { DetectDependencies = true };
+    var repositoryNavigator =
+        await repositoryOpener.OpenRepositoryNavigatorAsync(CatalogPath);
 
-    // Carregando a relação de dependência entre os scripts do catálogo.
-    var dependencyDetectorVisitor = new DependencyDetectorVisitor();
-    await catalog.AcceptAsync(dependencyDetectorVisitor);
+    var rootNode = repositoryNavigator.RootNode;
 
     //
     // Configurando as conexões.
@@ -62,14 +61,14 @@ public class MigrateCommand : ICommand
     if (ConnectionMaps?.Any() == true)
     {
       var connectionConfigurator = new ConnectionConfigurator();
-      connectionConfigurator.ConfigureConnections(catalog, ConnectionMaps);
+      connectionConfigurator.ConfigureConnections(rootNode, ConnectionMaps);
     }
 
     //
     // Montando pipelines.
     //
     var pipelineBuilder = new PipelineBuilder();
-    var treeNodeNavigator = new TreeNodeNavigator(catalog);
+    var treeNodeNavigator = new TreeNodeNavigator(rootNode);
     foreach (var scriptFilter in ScriptFilters)
     {
       var nodes = treeNodeNavigator.ListNodes(scriptFilter);
@@ -93,6 +92,22 @@ public class MigrateCommand : ICommand
     //
     var databaseMigrator = new DatabaseMigrator();
 
+    RegisterListeners(databaseMigrator);
+
+    foreach (var pipeline in pipelines)
+    {
+      await databaseMigrator.MigrateAsync(pipeline);
+    }
+  }
+
+  /// <summary>
+  /// Imprime um relatório de erros ocorridos nos pipelines e seus scripts.
+  /// </summary>
+  /// <param name="databaseMigrator">
+  /// Objeto DatabaseMigrator para registro dos eventos.
+  /// </param>
+  private void RegisterListeners(DatabaseMigrator databaseMigrator)
+  {
     databaseMigrator.OnPipelineStart += (sender, args) =>
       Console.WriteLine($"PIPELINE {args.Phase.Name}");
     databaseMigrator.OnStageStart += (sender, args) =>
@@ -129,11 +144,6 @@ public class MigrateCommand : ICommand
         Console.Error.WriteLine();
       }
     };
-
-    foreach (var pipeline in pipelines)
-    {
-      await databaseMigrator.MigrateAsync(pipeline);
-    }
   }
 
   /// <summary>

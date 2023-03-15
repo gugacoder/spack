@@ -26,7 +26,7 @@ public static class DriveExtensions
   /// <exception cref="InvalidOperationException">
   /// O catálogo não possui um drive associado.
   /// </exception>
-  public static Stream OpenScriptFile(this ScriptNode script)
+  public static async Task<Stream> OpenScriptFileAsync(this ScriptNode script)
   {
     var filePath = script.FilePath
         ?? throw new InvalidOperationException(
@@ -40,6 +40,6 @@ public static class DriveExtensions
         ?? throw new InvalidOperationException(
             $"O catálogo não possui um drive associado: {catalog.Name}");
 
-    return drive.OpenFile(script.FilePath);
+    return await drive.OpenFileAsync(script.FilePath);
   }
 }

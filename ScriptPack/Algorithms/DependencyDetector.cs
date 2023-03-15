@@ -64,7 +64,7 @@ public class DependencyDetector
 
     string? line;
 
-    using var scriptStream = targetScript.OpenScriptFile();
+    using var scriptStream = await targetScript.OpenScriptFileAsync();
     using var scriptReader = new StreamReader(scriptStream);
 
     while ((line = await scriptReader.ReadLineAsync()) != null)

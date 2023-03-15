@@ -138,6 +138,8 @@ public class DatabaseMigrator
 
       await cn.OpenAsync();
 
+      OnConnection?.Invoke(this, new(stage, cn));
+
       var optimizer = new ConnectionOptimizer();
       await optimizer.OptimizeConnectionAsync(cn);
 

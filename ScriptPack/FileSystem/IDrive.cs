@@ -104,7 +104,7 @@ public interface IDrive
   /// <returns>
   /// Stream para leitura do arquivo.
   /// </returns>
-  Stream OpenFile(string path);
+  Task<Stream> OpenFileAsync(string path);
 
   /// <summary>
   /// Abre um arquivo para leitura.
@@ -116,7 +116,7 @@ public interface IDrive
   /// <returns>
   /// Stream para leitura do arquivo.
   /// </returns>
-  TextReader ReadFile(string path, Encoding? encoding = null);
+  Task<TextReader> ReadFileAsync(string path, Encoding? encoding = null);
 
   /// <summary>
   /// Lê o conteúdo de um arquivo como texto.

@@ -44,9 +44,14 @@ public class ConnectionConfigurator
       var connectionName = tokens.First().Trim();
       var connectionString = string.Join(":", tokens.Skip(1)).Trim();
 
-      var connection = connections.FirstOrDefault(x => x.Name == connectionName)
-          ?? throw new ArgumentException(
-              $"A conexão '{connectionName}' não foi encontrada no catálogo.");
+      var connection = connections.FirstOrDefault(x => x.Name == connectionName);
+      if (connection == null)
+      {
+        Console.Error.WriteLine(
+            $"[NOTA]A conexão '{connectionName}' não foi encontrada no " +
+            $"catálogo: {catalog.Path}");
+        continue;
+      }
 
       connection.ConnectionStringFactory = new(connectionString);
     }

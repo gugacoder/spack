@@ -205,10 +205,11 @@ public class FileDrive : IDrive
   /// O método retorna um stream que pode ser utilizado para ler os dados do
   /// arquivo.
   /// </remarks>
-  public Stream OpenFile(string path)
+  public Task<Stream> OpenFileAsync(string path)
   {
     path = GetPath(path);
-    return File.OpenRead(path);
+    Stream stream = File.OpenRead(path);
+    return Task.FromResult(stream);
   }
 
   /// <summary>
@@ -224,11 +225,12 @@ public class FileDrive : IDrive
   /// O método retorna um TextReader que pode ser utilizado para ler os dados do
   /// arquivo.
   /// </remarks>
-  public TextReader ReadFile(string path, Encoding? encoding = null)
+  public Task<TextReader> ReadFileAsync(string path, Encoding? encoding = null)
   {
     path = GetPath(path);
     encoding ??= Encoding.UTF8;
-    return new StreamReader(path, encoding);
+    TextReader reader = new StreamReader(path, encoding);
+    return Task.FromResult(reader);
   }
 
   /// <summary>

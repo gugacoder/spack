@@ -12,6 +12,12 @@ namespace SPack.Commands;
 public class RepositoryOpener
 {
   /// <summary>
+  /// Obtém ou define um valor booleano que indica se o repositório deve ser
+  /// carregado com o detector de dependências.
+  /// 
+  public bool DetectDependencies { get; set; }
+
+  /// <summary>
   /// Carrega o repositório com os catálogos lidos do caminho.
   /// </summary>
   /// <returns>Caminho da pasta ou do arquivo do catálogo.</returns>
@@ -57,6 +63,11 @@ public class RepositoryOpener
 
     var repositoryBuilder = new RepositoryBuilder();
     repositoryBuilder.AddDrive(drive);
+
+    if (DetectDependencies)
+    {
+      repositoryBuilder.AddDependencyDetector();
+    }
 
     return repositoryBuilder;
   }

@@ -30,7 +30,7 @@ public class BatchExtractor
 
     string? line;
 
-    using var scriptStream = script.OpenScriptFile();
+    using var scriptStream = await script.OpenScriptFileAsync();
     using var scriptReader = new StreamReader(scriptStream);
 
     while ((line = await scriptReader.ReadLineAsync()) != null)
