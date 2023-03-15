@@ -1,99 +1,154 @@
-NOME
-    spack - Utilitário para migração de banco de dados usando o algoritmo ScriptPack.
-
-DESCRIÇÃO
-    O utilitário spack é usado para migrar bancos de dados usando o algoritmo ScriptPack.
+SPack - Utilitário de migração de bases de dados usando o algoritmo ScriptPack.
 
 SINOPSE
-    spack [COMANDO] [OPÇÃO]... [TEXTO]
+    spack [ACAO] [OPÇÃO]
 
-COMANDO
-    open CATALOG
-        Abre o catálogo de scripts para processamento.
-    list OBJECT
-        Lista os objetos encontrados no catálogo:
-            catalog     Catálogo de scripts
-            connection  Banco de dados no catálogo
-            product     Produtos no catálogo
-            module      Módulos no produto
-            package     Pacotes dos módulos
-            script      Scripts nos pacotes
+AÇÕES
+    list PATH
+        Lista o conteúdo do catálogo de scripts.
+        Opções
+            --catalog CATÁLOGO
+    show PATH
+        Exibe o conteúdo de objetos do catálogo de scripts.
+        Opções
+            --catalog CATÁLOGO
     migrate
-        Migra os scripts do catálogo para o banco de dados.
-        Opções:
-            -s, --script PATH
-                Usado para indicar o produto, módulo, pacote ou script que será migrado.
-                Pode ocorrer várias vezes.
-                Se não indicado nada será feito.
-            -c, --connection CONFIG
-                Usado para indicar a conexão com o banco de dados.
+        Executa os scripts de migração nas bases de dados.
+        Opções
+            --catalog CATÁLOGO
+            --script PATH
+            --database STRING_DE_CONEXÃO
     encode SENHA
-        Criptografa o SENHA fornecido usando o módulo Crypto.
+        Codifica uma senha para ser usada em uma string de conexão.
 
 OPÇÕES
-    -h, -?, --help
-        Exibe esta ajuda e sai.
+    -c, --catalog CATÁLOGO
+            Define o caminho da pasta ou arquivo do catálogo.
+            Se omitido o SPack tentará localizar o catálogo a partir da pasta
+            atual. É esperado que a pasta contenha apenas um catálogo.
     -s, --script PATH
-        Usado na seleção de scripts para migração.
-        Pode ocorrer várias vezes.
-        PATH
-            O caminho do objeto a ser selecionado.
-            Exemplo: /MyApp/1.0.0/MyModule
-    -c, --connection CONFIG
-        Configuração de uma conexão com o banco de dados.
-        Pode ocorrer várias vezes para bancos de tipos diferentes.
-        CONFIG
-            NOME:Server=;Port=;Database=;User ID=;Password=;Timeout=;Application Name=
-        Sendo:
-            NOME                Nome da configuração da base, conforme definido no arquivo `catalog.json`.
-                                O arquivo `catalog.json` contém a definição de conexão das bases utilizadas
-                                pelos scripts do projeto.
-                                Exemplo:
-                                  // catalog.json
-                                  {
-                                    "name": "SandboxApp",
-                                    "connections": [
-                                      {
-                                        "name": "sandbox",
-                                        "provider": "SqlServer",
-                                        "description": "Base de dados do sistema Sandbox.",
-                                        "defaultDatabaseName": "SandboxDB"
-                                      },
-                                      {
-                                        "name": "profile",
-                                        "provider": "SqlServer",
-                                        "description": "Base de dados do sistema Profile.",
-                                        "defaultDatabaseName": "ProfileDB"
-                                      }
-                                    ]
-                                  }
-            Server=             Endereço do serviço de banco.
-            Port=               Opcional. Porta do serviço de banco.
-            User ID=            Nome do usuário.
-            Password=           Senha do usuário.
-            Timeout=            Opcional. Tempo limite de espera para conexão em segundos.
-            Application Name=   Opcional. Nome da aplicação exibida na conexão de banco de dados.
-                                Por padrão: ScriptPack
+            Seleciona os scripts ou pacotes de scripts que serão executados na
+            base de dados.
+            Pode ocorrer várias vezes para selecionar vários scripts e pacotes.
+            Se omitido o SPack executará todos os scripts do catálogo.
+    -d, --database STRING_DE_CONEXÃO
+            Configura a base de dados que será migrada.
+            Pode ocorrer várias vezes para configurar as várias bases de dados
+            disponíveis no catálogo.
+    -v, --verbose
+            Mostra informações adicionais durante a execução.
+    -h, --help
+            Mostra esta ajuda.
 
-        Exemplo:
-            sandbox:Server=127.0.0.1;Database=SandboxDB;User ID=SA;Password=S4NDB0X
-
+PARÂMETROS
+    PATH
+        Um caminho ou padrão de pesquisa de pastas e arquivos no diretório
+        virtual do catálogo de scripts. O padrão de pesquisa suporta as opções
+        comuns do Glob Pattern, que é um tipo de padrão de string utilizado para
+        fazer correspondências com nomes de arquivos e diretórios. Esses padrões
+        facilitam a especificação de múltiplos arquivos ou diretórios usando
+        caracteres curinga, simplificando a busca e manipulação de arquivos.
+        Algumas opções comuns do Glob Pattern incluem:
+            ?   Corresponde a qualquer caractere único
+            *   Corresponde a qualquer sequência de caracteres (incluindo vazio)
+            **  Corresponde a qualquer sequência de caracteres, atravessando
+                subdiretórios
+            []  Corresponde a um único caractere que esteja dentro dos colchetes
+                Exemplo:
+                    [abc] corresponderia a 'a', 'b' ou 'c'
+            [!] Corresponde a um único caractere que não esteja dentro dos
+                colchetes
+                Exemplo:
+                    [!abc] corresponderia a qualquer caractere quenão seja 'a',
+                    'b' ou 'c'
+        Exemplos:
+            /Catálogo/SandboxApp/1.0.0/WebSite/Scripts/sc-001.sql
+                Corresponde um script
+            /Catálogo/SandboxApp/1.?.?
+                Corresponde todas as versões 1.*
+            **/1.[!1].*
+                Corresponde a qualquer versão 1.* exceto 1.1.*
+            **/*.sql
+                Corresponde todos os scripts
+    CATÁLOGO
+        O caminho de uma pasta ou arquivo de um catálogo de scripts.
+        O catálogo de scripts é uma pasta contendo scripts organizados nos
+        níveis Catálogos, Produtos, Versões, Módulos, Pacotes e Scripts.
+        O SPack pode acessar a pasta diretamente ou através de um arquivo
+        compactado ZIP.
+        O valor de CATÁLOGO pode ser:
+        -   O caminho de uma pasta contendo um catálogo de scripts.
+        -   O caminho de um arquivo ZIP contendo um catálogo de scripts.
+        -   O caminho de um arquivo JSON que esteja na raiz pasta raiz do
+            catálogo de scripts.
+            Em geral este arquivo tem o nome de `catalog.json`.
+        Exemplos:
+        -   No Windows:
+            -   C:\Scripts
+            -   C:\Scripts.zip
+            -   C:\Scripts\catalog.json
+        -   No Linux:
+            -   /home/user/Scripts
+            -   /home/user/Scripts.zip
+            -   /home/user/Scripts/catalog.json
+    STRING_DE_CONEXÃO
+        Configuração de uma string de conexão para um banco de dados.
+        O SPack suporta a configuração de múltiplas bases de dados para
+        migração de múltiplas bases de dados em uma única execução.
+        Cada string de conexão definida para uma base de dados tem a forma:
+            <NOME_DA_CONEXÃO>:<STRING_DE_CONEXÃO>
+        Onde:
+            <NOME_DA_CONEXÃO>
+                É o nome da configuração de conexão para a base de dados.
+                As configurações de conexão são definidas no arquivo de
+                configuração do catálogo (catalog.json), na coleção de conexões
+                da sua propriedade `connections`.
+                Por exemplo:
+                    // catalog.json
+                    {
+                      "connections": [
+                        { "name": "mydb1", "provider": "SqlServer" },
+                        { "name": "mydb2", "provider": "PostgreSQL" }
+                      ]
+                    }
+            <STRING_DE_CONEXÃO>
+                É a string de conexão para a base de dados.
+                A string de conexão é composta por uma lista de pares de chave e
+                valor separados por ponto-e-vírgula (;).
+                Exemplo:
+                    "Server=localhost;Database=MyDB;User Id=sa;Password=123"
+        Exemplos:
+            mydb1:Server=localhost;Database=MyDB1;User Id=sa;Password=123
+            mydb2:Server=localhost;Database=MyDB2;User Id=postgres;Password=123
+    
 EXEMPLOS
 
-    spack open C:\SandboxScripts \
-          migrate \
-          -s /sandbox/1.0.0 \
-          -c sandbox:Server=127.0.0.1;Database=SandboxDB;User ID=SA;Password=S4NDB0X
+    spack list **/*.sql
+            Lista todos os scripts do catálogo.
 
-    spack open SandboxScripts.zip \
-          migrate \
-          -s /profile/1.5.0/api \
-          -s /profile/1.5.0/users \
-          -s /sandbox/1.0.0/api \
-          -s /sandbox/1.0.0/services \
-          -c sandbox:Server=127.0.0.1;Database=SandboxDB;User ID=SA;Password=enc:EEY3NDZfGw==
-          -c profile:Server=127.0.0.1;Database=ProfileDB;User ID=SA;Password=enc:EEY3NDZfGw==
+    spack list **/*.connection
+            Lista todas as conexões do catálogo.
 
-    spack encode 'S4NDB0X'
-      -- Imprime:
-      -- enc:EEY3NDZfGw==
+    spack show **/sc-001.sql
+            Exibe o conteúdo do script `sc-001.sql`.
+
+    spack show **/mydb.connection
+            Exibe a configuração de conexão para a base de dados `mydb`.
+
+    spack migrate \
+        -s **/sc-001.sql \
+        -d mydb1:Server=localhost;Database=MyDB1;User Id=sa;Password=123
+            Executa o script `sc-001.sql` na base de dados `mydb1`.
+
+    spack encode MyPassword
+        # Imprime: enc:DgspEQccNB0LFA==
+            Codifica a senha `MyPassword` para ser usada em uma string de
+            conexão.
+
+    spack migrate \
+        -c MyScriptPack.zip \
+        -s **/sc-001.sql \
+        -d mydb1:Server=localhost;Database=MyDB1;\
+                User Id=sa;\Password=enc:DgspEQccNB0LFA==
+            Executa o script `sc-001.sql` na base de dados `mydb1` a partir do
+            catálogo `MyScriptPack.zip` usando a senha codificada.

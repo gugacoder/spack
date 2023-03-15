@@ -8,6 +8,21 @@ namespace ScriptPack.Domain;
 public static class NodeExtesions
 {
   /// <summary>
+  /// Obtém o nodo raiz da árvore de parentesco.
+  /// </summary>
+  /// <param name="node">
+  /// Nodo a ser verificado.
+  /// </param>
+  /// <returns>
+  /// O nodo raiz.
+  /// </returns>
+  public static INode Root(this INode node)
+  {
+    if (node.Parent == null) return node;
+    return node.Parent.Root();
+  }
+
+  /// <summary>
   /// Detecta o script na árvore de parentesco.
   /// </summary>
   /// <param name="node">

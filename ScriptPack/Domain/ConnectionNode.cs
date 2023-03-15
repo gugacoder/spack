@@ -73,7 +73,6 @@ public class ConnectionNode : AbstractNode
   /// <summary>
   /// Fábrica de conexão de base de dados baseado em consulta SQL.
   /// </summary>
-  /// <value></value>
   public ConnectionStringFactoryNode? ConnectionStringFactory
   {
     get => Get<ConnectionStringFactoryNode>();

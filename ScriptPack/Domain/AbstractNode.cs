@@ -25,7 +25,6 @@ public abstract class AbstractNode : INode
   /// <summary>
   /// Representa o pai do nodo.
   /// </summary>
-  [JsonIgnore]
   public virtual INode? Parent { get; set; }
 
   /// <summary>

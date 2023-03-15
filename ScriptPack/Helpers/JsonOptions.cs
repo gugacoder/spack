@@ -17,4 +17,16 @@ public static class JsonOptions
     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     PropertyNameCaseInsensitive = true
   };
+
+  /// <summary>
+  /// Opções de serialização/desserialização de objetos JSON com formatação
+  /// CamelCase, diferenciação de maiúsculas e minúsculas desativada e com
+  /// indentação.
+  /// </summary>
+  public static readonly JsonSerializerOptions IndentedCamelCase = new()
+  {
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    PropertyNameCaseInsensitive = true,
+    WriteIndented = true
+  };
 }

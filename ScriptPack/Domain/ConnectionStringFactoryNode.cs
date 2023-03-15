@@ -9,6 +9,21 @@ namespace ScriptPack.Domain;
 /// </summary>
 public class ConnectionStringFactoryNode : AbstractNode
 {
+  public ConnectionStringFactoryNode()
+  {
+  }
+
+  /// <summary>
+  /// Inicializa uma nova instância da classe ConnectionStringFactoryNode.
+  /// </summary>
+  /// <param name="connectionString">
+  /// A string de conexão com a base de dados.
+  /// </param>
+  public ConnectionStringFactoryNode(string connectionString)
+  {
+    this.ConnectionString = connectionString;
+  }
+
   /// <summary>
   /// A string de conexão com a base de dados.
   /// </summary>

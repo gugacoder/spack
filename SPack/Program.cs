@@ -8,22 +8,32 @@ await RunAsync(args);
 /// <param name="args">Os argumentos passados para o programa.</param>
 async Task RunAsync(string[] args)
 {
+  var options = new
+  {
+    help = new Switch(Long: true, 'h'),
+    list = new Option(DefaultValue: "**"),
+    show = new Option(),
+    migrate = new Switch(),
+    encode = new Option(),
+    catalog = new Option(Long: true, 'c'),
+    script = new OptionList(Long: true, 's'),
+    database = new OptionList(Long: true, 'd'),
+    verbose = new Switch(Long: true, 'v')
+  };
+
   try
   {
-    var options = new
-    {
-      help = new Switch(Long: true, 'h'),
-      encode = new Option(),
-      open = new Option(),
-      list = new Option(),
-      migrate = new Switch(),
-      scripts = new OptionList(Long: true, 's'),
-      connections = new OptionList(Long: true, 'c')
-    };
-
     ParseArgs(args, options);
+  }
+  catch (Exception ex)
+  {
+    Console.Error.WriteLine(ex.Message);
+    return;
+  }
 
-    var catalog = options.open.On ? options.open.Value : "";
+  try
+  {
+    var catalog = options.catalog.On ? options.catalog.Value : null;
 
     ICommand command = options switch
     {
@@ -36,16 +46,24 @@ async Task RunAsync(string[] args)
       { list: { On: true } }
           => new ListCommand
           {
-            Catalog = catalog,
+            CatalogPath = catalog,
             SearchPattern = options.list.Value
+          },
+
+      { show: { On: true } }
+          => new ShowCommand
+          {
+            CatalogPath = catalog,
+            SearchPattern = options.show.Value,
+            ConnectionMaps = options.database.Items
           },
 
       { migrate: { On: true } }
           => new MigrateCommand
           {
-            Catalog = options.open.Value,
-            Scripts = options.scripts.Items,
-            Connections = options.connections.Items
+            CatalogPath = catalog,
+            ScriptFilters = options.script.Items,
+            ConnectionMaps = options.database.Items
           },
 
       _ => throw new ArgumentException(
@@ -53,12 +71,23 @@ async Task RunAsync(string[] args)
           "Use --help para mais detalhes.")
     };
 
+    command.Verbose = options.verbose.On;
+
     await command.RunAsync();
 
   }
   catch (Exception ex)
   {
     Console.Error.WriteLine(ex.Message);
+    if (options.verbose.On)
+    {
+      while (ex.InnerException != null)
+      {
+        Console.Error.WriteLine("---");
+        Console.Error.WriteLine(ex.StackTrace);
+        ex = ex.InnerException;
+      }
+    }
   }
 }
 
@@ -138,12 +167,13 @@ void ParseArgs(string[] args, object options)
       //
       // A opção existe um valor. Verificando se o valor foi informado.
       //
+      var argValue = (args.Length > (i + 1) && !args[i + 1].StartsWith("-"))
+          ? args[++i]
+          : argument.DefaultValue;
 
-      if (args.Length <= i + 1)
+      if (argValue == null)
         throw new IndexOutOfRangeException(
             $"USO INCORRETO! Valor do argumento não informado: {arg}");
-
-      var argValue = args[++i];
 
       //
       // Realizando o parsing do argumento
@@ -162,7 +192,7 @@ void ParseArgs(string[] args, object options)
             .Select(x => x.Trim())
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .ToList();
-        optList.GetType().GetProperty("Items")?.SetValue(optList, items);
+        optList.Items.AddRange(items);
         continue;
       }
     }
@@ -182,6 +212,7 @@ interface IArgument
   bool Long { get; set; }
   char? Short { get; set; }
   bool On { get; set; }
+  string? DefaultValue { get; set; }
 }
 
 record Switch(
@@ -191,25 +222,29 @@ record Switch(
   public bool Long { get; set; } = Long;
   public char? Short { get; set; } = Short;
   public bool On { get; set; } = On;
+  string? IArgument.DefaultValue { get; set; }
 }
 
 
 record Option(
     bool Long = false, char? Short = null, bool On = false,
-    string Value = ""
+    string Value = "", string? DefaultValue = null
     ) : IArgument
 {
   public bool Long { get; set; } = Long;
   public char? Short { get; set; } = Short;
   public bool On { get; set; } = On;
+  public string? DefaultValue { get; set; } = DefaultValue;
 };
 
 record OptionList(
     bool Long = false, char? Short = null, bool On = false,
-    List<string> Items = null!
+    List<string> Items = null!, string? DefaultValue = null
     ) : IArgument
 {
   public bool Long { get; set; } = Long;
   public char? Short { get; set; } = Short;
   public bool On { get; set; } = On;
+  public string? DefaultValue { get; set; } = DefaultValue;
+  public List<string> Items { get; set; } = Items ?? new List<string>();
 };

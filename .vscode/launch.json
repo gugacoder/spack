@@ -12,10 +12,16 @@
       // If you have changed target frameworks, make sure to update the program path.
       "program": "${workspaceFolder}/SPack/bin/Debug/net6.0/spack.dll",
       "args": [
+        "-v",
         // "-h"
-        // "encode", "password",
-        "open", "Sandbox",
-        "list", "**"
+        // "encode", "MyPassword",
+        // "list", "**",
+        // "show", "**",
+        "migrate",
+        "-c", "Sandbox/Sandbox/catalog.json",
+        "-s", "**",
+        "-d", "api: Server=172.27.0.121\\SQL2k17;Database=DBdirector_Emporio_Brasil_29;uid=sl;pwd=123",
+        "-d", "sandbox: Server=172.27.0.121\\SQL2k17;Database=DBdirector_Emporio_Brasil_29;uid=sl;pwd=123",
       ],
       "cwd": "${workspaceFolder}/SPack",
       // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console

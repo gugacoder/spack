@@ -19,6 +19,12 @@ namespace SPack.Commands;
 public class HelpCommand : ICommand
 {
   /// <summary>
+  /// Obtém ou define um valor booleano que indica se a execução deve ser
+  /// verbosa ou não.
+  /// </summary>
+  public bool Verbose { get; set; } = false;
+
+  /// <summary>
   /// Imprime o arquivo de ajuda HELP.info na saída padrão.
   /// </summary>
   /// <remarks>

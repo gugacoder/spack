@@ -1,6 +1,8 @@
 using System.Data.Common;
 using ScriptPack.Algorithms;
 using ScriptPack.Domain;
+using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace ScriptPack.Model;
 
@@ -10,20 +12,64 @@ namespace ScriptPack.Model;
 /// </summary>
 public class DatabaseMigrator
 {
+  #region Events
+
+  /// <summary>
+  /// Evento acionado quando o pipeline de migração é iniciado.
+  /// </summary>
+  public event EventHandler<ConnectionEventArgs>? OnConnection;
+
+  /// <summary>
+  /// Evento invocado quando uma mensagem de conexão é recebida.
+  /// </summary>
+  public event EventHandler<ConnectionMessageEventArgs>? OnConnectionMessage;
+
+  /// <summary>
+  /// Evento acionado quando o pipeline de migração é iniciado.
+  /// </summary>
+  public event EventHandler<PhaseEventArgs<PipelineNode>>? OnPipelineStart;
+
+  /// <summary>
+  /// Evento acionado quando o pipeline de migração é finalizado.
+  /// </summary>
+  public event EventHandler<PhaseEventArgs<PipelineNode>>? OnPipelineEnd;
+
+  /// <summary>
+  /// Evento acionado quando uma etapa do pipeline de migração é iniciada.
+  /// </summary>
+  public event EventHandler<PhaseEventArgs<StageNode>>? OnStageStart;
+
+  /// <summary>
+  /// Evento acionado quando uma etapa do pipeline de migração é finalizada.
+  /// </summary>
+  public event EventHandler<PhaseEventArgs<StageNode>>? OnStageEnd;
+
+  /// <summary>
+  /// Evento acionado quando uma etapa de migração é iniciada.
+  /// </summary>
+  public event EventHandler<PhaseEventArgs<StepNode>>? OnStepStart;
+
+  /// <summary>
+  /// Evento acionado quando uma etapa de migração é finalizada.
+  /// </summary>
+  public event EventHandler<PhaseEventArgs<StepNode>>? OnStepEnd;
+
   /// <summary>
   /// Evento acionado a cada etapa de migração bem sucedida.
   /// </summary>
-  public event EventHandler<StepEventArgs>? OnMigrate;
+  public event EventHandler<ScriptEventArgs>? OnMigrate;
 
   /// <summary>
   /// Evento acionado quando toda a migração é bem sucedida.
   /// </summary>
-  public event EventHandler<StepEventArgs>? OnSuccess;
+  public event EventHandler<ScriptEventArgs>? OnSuccess;
 
   /// <summary>
   /// Evento acionado quando há um erro em alguma etapa da migração.
   /// </summary>
   public event EventHandler<ErrorEventArgs>? OnError;
+
+  #endregion
 
   /// <summary>
   /// Executa as migrações do banco de dados seguindo as etapas do pipeline de
@@ -34,22 +80,38 @@ public class DatabaseMigrator
   {
     try
     {
-      var connections = (
+      OnPipelineStart?.Invoke(this, new(pipeline));
+
+      var catalogs = (
           from step in pipeline.Descendants<StepNode>()
           from script in step.Scripts
           let catalog = script.Ancestor<CatalogNode>()
+          where catalog != null
+          select catalog
+      ).Distinct();
+
+      var connections = (
+          from catalog in catalogs
           from connection in catalog.Connections
           select connection
-      ).ToArray();
+      ).Distinct().ToArray();
 
       foreach (var stage in pipeline.Stages)
       {
+        OnStageStart?.Invoke(this, new(stage));
+
         await this.MigrateStageAsync(stage, connections);
+
+        OnStageEnd?.Invoke(this, new(stage));
       }
     }
     catch (Exception ex)
     {
       pipeline.Faults.Add(Fault.EmitException(ex));
+    }
+    finally
+    {
+      OnPipelineEnd?.Invoke(this, new(pipeline));
     }
   }
 
@@ -71,6 +133,8 @@ public class DatabaseMigrator
       //
       var connector = new DatabaseConnector(connections);
       cn = await connector.CreateConnectionAsync(pipeline.Connection);
+
+      ConnectListeners(cn);
 
       await cn.OpenAsync();
 
@@ -108,12 +172,45 @@ public class DatabaseMigrator
     catch (Exception ex)
     {
       stage.Faults.Add(Fault.EmitException(ex));
-      OnError?.Invoke(this, new(ex));
+      OnError?.Invoke(this, new(ex, stage));
       throw;
     }
     finally
     {
       if (cn != null) await cn.DisposeAsync();
+    }
+  }
+
+  /// <summary>
+  /// Conecta-se aos listeners da conexão do banco de dados e invoca o evento
+  /// OnConnectionMessage quando uma mensagem de conexão é recebida.
+  /// </summary>
+  /// <param name="cn">
+  /// A conexão do banco de dados à qual os listeners serão conectados.
+  /// </param>
+  private void ConnectListeners(DbConnection cn)
+  {
+    if (OnConnectionMessage == null) return;
+
+    if (cn is SqlConnection sql)
+    {
+      sql.InfoMessage += (sender, e) =>
+      {
+        foreach (SqlError error in e.Errors)
+        {
+          var severe = (error.Class >= 16);
+          OnConnectionMessage.Invoke(this, new(cn, severe, error.Message));
+        }
+      };
+    }
+
+    if (cn is NpgsqlConnection mysql)
+    {
+      mysql.Notice += (sender, e) =>
+      {
+        var severe = (e.Notice.Severity == "ERROR");
+        OnConnectionMessage.Invoke(this, new(cn, severe, e.Notice.MessageText));
+      };
     }
   }
 
@@ -131,32 +228,40 @@ public class DatabaseMigrator
   private async Task ExecuteStepAsync(StepNode step,
     DbConnection dbConnection, DbTransaction? dbTransaction = null)
   {
-    var batcher = new BatchExtractor();
-    foreach (var script in step.Scripts)
+    OnStepStart?.Invoke(this, new(step));
+    try
     {
-      Batch[] batches;
-      Batch? batch = null;
-
-      try
+      var batcher = new BatchExtractor();
+      foreach (var script in step.Scripts)
       {
-        OnMigrate?.Invoke(this, new(step, script));
+        Batch[] batches;
+        Batch? batch = null;
 
-        batches = await batcher.ExtractBatchesAsync(script);
-
-        for (int i = 0; i < batches.Length; i++)
+        try
         {
-          batch = batches[i];
-          await ExecuteBatchAsync(batch, dbConnection, dbTransaction);
-        }
+          OnMigrate?.Invoke(this, new(step, script, dbConnection));
 
-        OnSuccess?.Invoke(this, new(step, script));
+          batches = await batcher.ExtractBatchesAsync(script);
+
+          for (int i = 0; i < batches.Length; i++)
+          {
+            batch = batches[i];
+            await ExecuteBatchAsync(batch, dbConnection, dbTransaction);
+          }
+
+          OnSuccess?.Invoke(this, new(step, script, dbConnection));
+        }
+        catch (Exception ex)
+        {
+          script.Faults.Add(Fault.EmitException(ex));
+          OnError?.Invoke(this, new(ex, step, script, batch));
+          throw;
+        }
       }
-      catch (Exception ex)
-      {
-        script.Faults.Add(Fault.EmitException(ex));
-        OnError?.Invoke(this, new(ex, step, script, batch));
-        throw;
-      }
+    }
+    finally
+    {
+      OnStepEnd?.Invoke(this, new(step));
     }
   }
 
@@ -192,21 +297,114 @@ public class DatabaseMigrator
   }
 
   /// <summary>
-  /// Representa os argumentos de eventos para quando uma etapa do ScriptPack é
-  /// executada.
+  /// Classe que captura mensagens emitidas pela conexão.
   /// </summary>
-  public class StepEventArgs : EventArgs
+  public class ConnectionMessageEventArgs : EventArgs
   {
-    public StepEventArgs(StepNode step, ScriptNode script)
+    /// <summary>
+    /// Cria uma nova instância da classe MessageEventArgs.
+    /// </summary>
+    /// <param name="message">A mensagem emitida.</param>
+    /// <param name="severe">
+    /// Um valor que indica se a mensagem é grave.
+    /// </param>
+    public ConnectionMessageEventArgs(DbConnection connection, bool severe,
+        string message)
     {
-      this.Step = step;
-      this.Script = script;
+      this.Connection = connection;
+      this.Severe = severe;
+      this.Message = message;
     }
 
     /// <summary>
-    /// A etapa que foi executada.
+    /// Obtém a conexão associada a esses argumentos de evento.
     /// </summary>
-    public StepNode Step { get; }
+    public DbConnection Connection { get; }
+
+    /// <summary>
+    /// Obtém um valor que indica se a mensagem é grave.
+    /// </summary>
+    public bool Severe { get; }
+
+    /// <summary>
+    /// Obtém a mensagem emitida.
+    /// </summary>
+    public string Message { get; }
+  }
+
+  /// <summary>
+  /// Classe que representa os argumentos de eventos relacionados a conexões.
+  /// </summary>
+  public class ConnectionEventArgs : EventArgs
+  {
+    /// <summary>
+    /// Cria uma nova instância da classe ConnectionEventArgs com uma conexão
+    /// específica.
+    /// </summary>
+    /// <param name="stage">
+    /// A etapa associada a esses argumentos de evento.
+    /// </param>
+    /// <param name="connection">
+    /// A conexão associada a esses argumentos de evento.
+    /// </param>
+    public ConnectionEventArgs(StageNode stage, DbConnection connection)
+    {
+      this.Stage = stage;
+      this.Connection = connection;
+    }
+
+    /// <summary>
+    /// Obtém a etapa associada a esses argumentos de evento.
+    /// </summary>
+    public StageNode Stage { get; }
+
+    /// <summary>
+    /// Obtém a conexão associada a esses argumentos de evento.
+    /// </summary>
+    public DbConnection Connection { get; }
+  }
+
+  /// <summary>
+  /// Representa os argumentos de eventos para quando uma etapa do ScriptPack é
+  /// executada.
+  /// </summary>
+  public class PhaseEventArgs<T> : EventArgs
+    where T : INode
+  {
+    public PhaseEventArgs(T phase)
+    {
+      this.Phase = phase;
+    }
+
+    /// <summary>
+    /// O pipeline, a etapa ou o passo em execução
+    /// </summary>
+    public T Phase { get; }
+  }
+
+  /// <summary>
+  /// Representa os argumentos de eventos para quando uma etapa do ScriptPack é
+  /// executada.
+  /// </summary>
+  public class ScriptEventArgs : EventArgs
+  {
+    public ScriptEventArgs(StepNode step, ScriptNode script,
+        DbConnection connection)
+    {
+      this.Step = step;
+      this.Script = script;
+      this.Connection = connection;
+    }
+
+    /// <summary>
+    /// O pipeline, a etapa ou o passo em execução
+    /// </summary>
+    public INode Step { get; }
+
+    /// <summary>
+    /// A conexão do banco de dados a ser utilizada.
+    /// </summary>
+    public DbConnection Connection { get; set; }
 
     /// <summary>
     /// O script que foi executado.
@@ -220,12 +418,12 @@ public class DatabaseMigrator
   /// </summary>
   public class ErrorEventArgs : EventArgs
   {
-    public ErrorEventArgs(Exception exception, StepNode? step = null,
+    public ErrorEventArgs(Exception exception, INode phase,
         ScriptNode? script = null, Batch? batch = null)
     {
-      this.Step = step;
-      this.Script = script;
       this.Exception = exception;
+      this.Phase = phase;
+      this.Script = script;
       this.Batch = batch;
     }
 
@@ -235,9 +433,9 @@ public class DatabaseMigrator
     public Exception Exception { get; }
 
     /// <summary>
-    /// A etapa onde ocorreu o erro.
+    /// O pipeline, a etapa ou o passo em execução
     /// </summary>
-    public StepNode? Step { get; }
+    public INode Phase { get; }
 
     /// <summary>
     /// O script que causou o erro.

@@ -19,25 +19,27 @@ public static class Drive
   /// </exception>
   public static IDrive GetDrive(string path)
   {
-    if (IsDirectory(path))
+    path = Path.GetFullPath(path);
+
+    if (Directory.Exists(path))
       return new FileDrive(path);
 
     if (IsZipFile(path))
       return new ZipDrive(path);
 
-    throw new NotSupportedException($"Drive not supported: {path}");
-  }
+    // Se for um dos arquivos JSON suportados podemos criar um Drive para
+    // navegação em seu diretório.
+    var filename = Path.GetFileName(path);
+    if (filename == "catalog.json"
+        || filename == "product.json"
+        || filename == "module.json"
+        || filename == "package.json")
+    {
+      var folder = Path.GetDirectoryName(path)!;
+      return new FileDrive(folder);
+    }
 
-  /// <summary>
-  /// Verifica se o caminho especificado corresponde a um diretório.
-  /// </summary>
-  /// <param name="path">Caminho para ser verificado.</param>
-  /// <returns>
-  /// True se o caminho corresponder a um diretório, caso contrário, False.
-  /// </returns>
-  private static bool IsDirectory(string path)
-  {
-    return Directory.Exists(path);
+    throw new NotSupportedException($"Drive not supported: {path}");
   }
 
   /// <summary>

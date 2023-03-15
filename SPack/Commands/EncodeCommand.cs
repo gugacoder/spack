@@ -8,6 +8,12 @@ namespace SPack.Commands;
 public class EncodeCommand : ICommand
 {
   /// <summary>
+  /// Obtém ou define um valor booleano que indica se a execução deve ser
+  /// verbosa ou não.
+  /// </summary>
+  public bool Verbose { get; set; } = false;
+
+  /// <summary>
   /// O token a ser codificado.
   /// </summary>
   public string Token { get; set; } = "";

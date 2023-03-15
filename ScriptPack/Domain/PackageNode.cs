@@ -30,7 +30,6 @@ public class PackageNode : AbstractFileNode
   /// Obtém ou define os nomes de configurações de conexões que devem ser
   /// utilizadas para execução do pacote.
   /// </summary>
-  [JsonIgnore]
   public List<string> TargetConnections { get; set; } = new();
 
   /// <summary>

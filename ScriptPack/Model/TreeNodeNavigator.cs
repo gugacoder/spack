@@ -5,30 +5,34 @@ using ScriptPack.Domain;
 namespace ScriptPack.Model;
 
 /// <summary>
-/// Classe que representa um navegador de repositório que pode ser usado para
-/// navegar pelos nodos de um repositório e obter informações sobre eles.
+/// Utilitário para navegação entre nodos de uma estrutura hierárquica baseada
+/// em <see cref="INode"/>.
 /// </summary>
-public class RepositoryNavigator
+public class TreeNodeNavigator
 {
   /// <summary>
-  /// Cria uma nova instância de RepositoryNavigator com o nodo raiz
-  /// especificado.
+  /// Cria um novo navegador de nodo de árvore com o nodo raiz especificado.
   /// </summary>
-  /// <param name="rootNode">O nodo raiz do repositório.</param>  
-  public RepositoryNavigator(INode rootNode)
+  /// <param name="rootNode">
+  /// O nodo raiz a partir do qual a navegação deve começar.
+  /// </param>
+  public TreeNodeNavigator(INode rootNode)
   {
     this.RootNode = rootNode;
   }
-
   /// <summary>
-  /// Obtém ou define o nodo raiz do repositório.
+  /// O nodo raiz da estrutura hierárquica a partir da qual é permitida a
+  /// navegação.
+  /// Os caminhos dos nodos são relativos a este nodo.
   /// </summary>
   public INode RootNode { get; set; }
 
   /// <summary>
-  /// Retorna o caminho absoluto do nodo especificado em relação à raiz do
-  /// repositório.
+  /// Obtém o caminho absoluto correspondente a um caminho relativo em relação
+  /// ao nodo raiz.
   /// </summary>
+  /// <param name="path">O caminho relativo.</param>
+  /// <returns>O caminho absoluto correspondente.</returns>
   public string GetAbsolutePath(string path)
   {
     return AppendPrefix(path);

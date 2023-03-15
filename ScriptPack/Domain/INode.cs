@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ScriptPack.Domain;
 
 /// <summary>
@@ -15,6 +17,7 @@ public interface INode
   /// <remarks>
   /// Se este nodo não tem pai, o valor retornado é nulo.
   /// </remarks>
+  [JsonIgnore]
   INode? Parent { get; set; }
 
   /// <summary>
@@ -31,12 +34,14 @@ public interface INode
   /// <summary>
   /// Obtém o caminho virtual do nodo dentro da hierarquia de nodos.
   /// </summary>
+  [JsonIgnore]
   string Path { get; }
 
   /// <summary>
   /// Obtém ou define uma lista de falhas ocorridas durante a criação ou
   /// execução do nodo.
   /// </summary>
+  [JsonIgnore]
   List<Fault> Faults { get; set; }
 
   /// <summary>

@@ -39,22 +39,24 @@ public class PipelineBuilder
   }
 
   /// <summary>
-  /// Adiciona os scripts habilitados de um nó à coleção de scripts.
-  /// Se o nó representar um script, o script será adicionado diretamente.
-  /// Se o nó representar um produto, módulo, pacote, etc, todos os scripts em sua estrutura habilitados serão adicionados.
+  /// Adiciona os scripts habilitados de um nodo à coleção de scripts.
+  /// Se o nodo representar um script, o script será adicionado diretamente.
+  /// Se o nodo representar um produto, módulo, pacote, etc, todos os scripts
+  /// em sua estrutura habilitados serão adicionados.
   /// </summary>
-  /// <param name="node">O nó a ser adicionado.</param>
+  /// <param name="node">O nodo a ser adicionado.</param>
   public void AddScriptsFromNode(INode node)
   {
     this.nodes.Add(node);
   }
 
   /// <summary>
-  /// Adiciona os scripts habilitados de vários nós à coleção de scripts.
-  /// Se um nó representar um script, o script será adicionado diretamente.
-  /// Se um nó representar um produto, módulo, pacote, etc, todos os scripts em sua estrutura habilitados serão adicionados.
+  /// Adiciona os scripts habilitados de vários nodos à coleção de scripts.
+  /// Se um nodo representar um script, o script será adicionado diretamente.
+  /// Se um nodo representar um produto, módulo, pacote, etc, todos os scripts
+  /// em sua estrutura habilitados serão adicionados.
   /// </summary>
-  /// <param name="nodes">Os nós a serem adicionados.</param>
+  /// <param name="nodes">Os nodos a serem adicionados.</param>
   public void AddScriptsFromNodes(IEnumerable<INode> nodes)
   {
     this.nodes.AddRange(nodes);
@@ -68,33 +70,33 @@ public class PipelineBuilder
   /// </returns>
   public List<PipelineNode> BuildPipelines()
   {
-    // Selecionado os scripts que estão habilitados agrupados por produto.
-    var selection = (
 
-      // Selecionando apenas os nodos com ancestors habilitados.
+    // Agrupando por versão produto e base de dados.
+    var selection = (
+      // Selecionando nodos habiliados...
       from node in this.nodes
       where node.AncestorsAndSelf<IFileNode>().All(n => n.Enabled)
-
-      // Selecionando apenas os scripts habilitados.
+      // Selecionando scripts habilitados...
       from script in node.DescendantsAndSelf<ScriptNode>()
       where script.Enabled
-
+      // Relacionando os pacotes...
       let package = script.Ancestor<PackageNode>()!
       from connection in connectionSelector.SelectConnections(package)
-
-        // Agrupando por produto e conexão.
+      // Relacionando as versões dos produtos...
+      let version = script.Ancestor<VersionNode>()
       group script
-        by (version: script.Ancestor<VersionNode>(), connection)
+        by (version, connection)
         into g
-
-      select (g.Key, scripts: g.ToList())
+      select (g.Key.version, g.Key.connection, scripts: g.Distinct().ToList())
     ).ToList();
 
     // Criando os pipelines para cada produto.
-    var pipelines = selection
-      .Select(s =>
-          CreatePipeline(s.Key.version, s.Key.connection, s.scripts))
-      .ToList();
+    var pipelines = new List<PipelineNode>();
+    foreach (var (version, connection, scripts) in selection)
+    {
+      var pipeline = CreatePipeline(version, connection, scripts);
+      pipelines.Add(pipeline);
+    }
 
     return pipelines;
   }
@@ -140,13 +142,13 @@ public class PipelineBuilder
     for (int i = 0; i < stages.Count; i++)
     {
       var stage = stages[i];
-      stage.Name = $"Estágio {i + 1}";
+      stage.Name = $"Estágio-{i + 1}";
     }
 
     var product = version.Ancestor<ProductNode>()!;
 
     var pipeline = new PipelineNode();
-    pipeline.Name = $"{product.Name} - {version.Version}";
+    pipeline.Name = $"{product.Name}-{version.Version}";
     pipeline.Connection = connection;
     pipeline.Stages.AddRange(stages);
 
