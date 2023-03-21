@@ -58,13 +58,80 @@ public class PathPatternInterpreter
   /// </returns>
   public (string ObjectName, string Tag) ExtractObjectNameAndTag(string filePath)
   {
-    var fileName = Path.GetFileNameWithoutExtension(filePath);
-    if (!fileName.StartsWith("-")) return (fileName, "");
+    var name = Path.GetFileNameWithoutExtension(filePath);
 
-    var tokens = fileName[1..].Split(' ', '-', ':', '.');
+    if (IsRetroCompatibleName(name))
+      return ExtractRetroCompatibleObjectNameAndTag(name);
+
+    if (!name.StartsWith("-")) return (name, "");
+
+    var tokens = name[1..].Split(' ', '-', ':', '.');
     var tag = $"-{tokens[0]}";
-    var objectName = fileName[(tag.Length + 1)..].Trim();
+    var objectName = name[(tag.Length + 1)..].Trim();
 
     return (objectName, tag);
+  }
+
+  /// <summary>
+  /// Identifica se o nome do arquivo é compatível com a versão anterior do
+  /// ScriptPack.
+  /// </summary>
+  /// <param name="name">
+  /// Nome do arquivo.
+  /// </param>
+  /// <returns>
+  /// Verdadeiro se o nome do arquivo é compatível com a versão anterior do
+  /// ScriptPack.
+  /// </returns>
+  /// <remarks>
+  /// As regras de compatibilidade são:
+  /// -   Pré-Script recebia o prefixo "pre-script"
+  /// -   Pós-Script recebia o prefixo "pos-script"
+  /// -   Pré-Transaction recebia o prefixo "pre-transaction"
+  /// -   Pós-Transaction recebia o prefixo "pos-transaction"
+  /// Era possível acrescentar um sufixo depois do prefixo, separado por um
+  /// ponto, como:
+  ///     pre-script.01-Create-Table.sql
+  /// </remarks>
+  /// <example>
+  /// -   pre-script.01-Create-Table.sql
+  /// -   pos-script.01-Create-Table.sql
+  /// -   pre-transaction.01-Create-Table.sql
+  /// -   pos-transaction.01-Create-Table.sql
+  /// </example>
+  private bool IsRetroCompatibleName(string name)
+  {
+    return name.StartsWith("pre-script.")
+        || name.StartsWith("pos-script.")
+        || name.StartsWith("pre-transaction.")
+        || name.StartsWith("pos-transaction.");
+  }
+
+  /// <summary>
+  /// Extrai do nome do caminho do arquivo um nome de objeto e um rótulo de
+  /// agrupamento, se houver, para o caso de compatibilidade com a versão
+  /// anterior do ScriptPack.
+  /// </summary>
+  /// <param name="name">
+  /// Nome do arquivo.
+  /// </param>
+  /// <returns>
+  /// Tupla com o nome do objeto e o rótulo de agrupamento.
+  /// </returns>
+  private (string ObjectName, string Tag)
+      ExtractRetroCompatibleObjectNameAndTag(string name)
+  {
+    // Nomes sufixados:
+    if (name.StartsWith("pre-script.sql")) return ("script", "-pre");
+    if (name.StartsWith("pos-script.sql")) return ("script", "-pos");
+    if (name.StartsWith("pre-transaction.sql")) return ("script", "-pretran");
+    if (name.StartsWith("pos-transaction.sql")) return ("script", "-postran");
+    // Nomes não sufixados:
+    if (name.StartsWith("pre-script.")) return (name[11..], "-pre");
+    if (name.StartsWith("pos-script.")) return (name[11..], "-pos");
+    if (name.StartsWith("pre-transaction.")) return (name[16..], "-pretran");
+    if (name.StartsWith("pos-transaction.")) return (name[16..], "-postran");
+
+    throw new Exception("Nome de arquivo não compatível com a versão anterior.");
   }
 }

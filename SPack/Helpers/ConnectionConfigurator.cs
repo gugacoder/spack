@@ -1,6 +1,6 @@
 using ScriptPack.Domain;
 
-namespace SPack.Commands;
+namespace SPack.Helpers;
 
 /// <summary>
 /// Utilitário para aplicação de configurações de conexão em catálogos.
@@ -40,9 +40,9 @@ public class ConnectionConfigurator
       //    <nome>:<connection string>
       // Exemplo:
       //    myapp:Server=127.0.0.1;Database=MyDB;User Id=MyUser;Password=MyPass;
-      var tokens = connectionMap.Split(':');
+      var tokens = connectionMap.Split(':', 2);
       var connectionName = tokens.First().Trim();
-      var connectionString = string.Join(":", tokens.Skip(1)).Trim();
+      var connectionString = tokens.Last().Trim();
 
       var connection = connections.FirstOrDefault(x => x.Name == connectionName);
       if (connection == null)

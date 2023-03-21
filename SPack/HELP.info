@@ -16,8 +16,19 @@ AÇÕES
         Executa os scripts de migração nas bases de dados.
         Opções
             --catalog CATÁLOGO
+            --package PACOTE
             --script PATH
             --database STRING_DE_CONEXÃO
+    validate
+        Checa por falhas nos catálogos de scripts.
+            --catalog CATÁLOGO
+            --package PACOTE
+            --script PATH
+    pipeline
+        Exibe o plano de execução dos pipelines.
+            --catalog CATÁLOGO
+            --package PACOTE
+            --script PATH
     encode SENHA
         Codifica uma senha para ser usada em uma string de conexão.
 
@@ -26,6 +37,25 @@ OPÇÕES
             Define o caminho da pasta ou arquivo do catálogo.
             Se omitido o SPack tentará localizar o catálogo a partir da pasta
             atual. É esperado que a pasta contenha apenas um catálogo.
+    -p, --package PACOTE
+            Forma simplificada de selecionar pacotes de scripts para migração.
+            Pode ocorrer várias vezes para selecionar vários pacotes.
+            Caso sejam encontrados pacotes duplicados em diferentes catálogos
+            uma falha será gerada.
+            O PACOTE tem a forma:
+                <PRODUTO>/<VERSÃO>/<MÓDULO>/<PACOTE>
+            Exemplos:
+                --package MyApp
+                    Seleciona a versão mais recente de MyApp.
+                    Equivalente a:
+                        --package MyApp/latest
+                --package MyApp/1.0.0
+                    Seleciona a versão 1.0.0 de MyApp.
+                --package MyApp/1.0.0/Contabilidade
+                    Seleciona o módulo Contabilidade da versão 1.0.0 de MyApp.
+                --package MyApp/latest/Suprimentos/Cadastros
+                    Seleciona o pacote Cadastros do módulo Suprimentos da versão
+                    mais recente de MyApp.
     -s, --script PATH
             Seleciona os scripts ou pacotes de scripts que serão executados na
             base de dados.
@@ -41,6 +71,60 @@ OPÇÕES
             Mostra esta ajuda.
 
 PARÂMETROS
+    CATÁLOGO
+        O caminho de uma pasta ou arquivo de um catálogo de scripts.
+        O catálogo de scripts é uma pasta contendo scripts organizados nos
+        níveis Catálogos, Produtos, Versões, Módulos, Pacotes e Scripts.
+        O SPack pode acessar a pasta diretamente ou através de um arquivo
+        compactado ZIP.
+        O valor de CATÁLOGO pode ser:
+        -   O caminho de uma pasta contendo um catálogo de scripts.
+        -   O caminho de um arquivo ZIP contendo um catálogo de scripts.
+        -   O caminho de um arquivo JSON que esteja na raiz pasta raiz do
+            catálogo de scripts.
+            Em geral este arquivo tem o nome de `catalog.json`.
+        Exemplos:
+        -   No Windows:
+            -   C:\Scripts
+            -   C:\Scripts.zip
+            -   C:\Scripts\catalog.json
+        -   No Linux:
+            -   /home/user/Scripts
+            -   /home/user/Scripts.zip
+            -   /home/user/Scripts/catalog.json
+    PACOTE
+        A identificação de um pacote na forma:
+            <PRODUTO>/<VERSÃO>/<MÓDULO>/<PACOTE>
+        Onde:
+            <PRODUTO>
+                É o nome do produto.
+                Exemplo:
+                    MyApp
+            <VERSÃO>
+                Opcional.
+                É a versão do produto.
+                Se omitido, a versão mais recente do produto será selecionada.
+                O rótulo `latest` pode ser usado para selecionar a versão mais
+                recente.
+                Exemplo:
+                    MyApp/1.0.0
+                    MyApp/latest
+            <MÓDULO>
+                Opcional.
+                É o nome do módulo.
+                Se omitido serão selecionados todos os módulos ativos da versão
+                do produto.
+                Exemplo:
+                    MyApp/1.0.0/Contabilidade
+                    MyApp/1.0.0/Suprimentos
+            <PACOTE>
+                Opcional.
+                É o nome do pacote.
+                Se omitido serão selecionados todos os pacotes ativos do módulo
+                da versão do produto.
+                Exemplo:
+                    MyApp/1.0.0/Contabilidade/Relatórios
+                    MyApp/1.0.0/Contabilidade/Cadastros
     PATH
         Um caminho ou padrão de pesquisa de pastas e arquivos no diretório
         virtual do catálogo de scripts. O padrão de pesquisa suporta as opções
@@ -66,31 +150,10 @@ PARÂMETROS
                 Corresponde um script
             /Catálogo/SandboxApp/1.?.?
                 Corresponde todas as versões 1.*
-            **/1.[!1].*
-                Corresponde a qualquer versão 1.* exceto 1.1.*
             **/*.sql
-                Corresponde todos os scripts
-    CATÁLOGO
-        O caminho de uma pasta ou arquivo de um catálogo de scripts.
-        O catálogo de scripts é uma pasta contendo scripts organizados nos
-        níveis Catálogos, Produtos, Versões, Módulos, Pacotes e Scripts.
-        O SPack pode acessar a pasta diretamente ou através de um arquivo
-        compactado ZIP.
-        O valor de CATÁLOGO pode ser:
-        -   O caminho de uma pasta contendo um catálogo de scripts.
-        -   O caminho de um arquivo ZIP contendo um catálogo de scripts.
-        -   O caminho de um arquivo JSON que esteja na raiz pasta raiz do
-            catálogo de scripts.
-            Em geral este arquivo tem o nome de `catalog.json`.
-        Exemplos:
-        -   No Windows:
-            -   C:\Scripts
-            -   C:\Scripts.zip
-            -   C:\Scripts\catalog.json
-        -   No Linux:
-            -   /home/user/Scripts
-            -   /home/user/Scripts.zip
-            -   /home/user/Scripts/catalog.json
+                Corresponde a itens com a extensão .sql
+            **/*[!.sql]
+                Corresponde a qualquer item exceto aqueles com a extensão .sql
     STRING_DE_CONEXÃO
         Configuração de uma string de conexão para um banco de dados.
         O SPack suporta a configuração de múltiplas bases de dados para

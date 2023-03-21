@@ -3,6 +3,7 @@ using ScriptPack.Algorithms;
 using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 using ScriptPack.Model;
+using SPack.Helpers;
 
 namespace SPack.Commands;
 
@@ -36,15 +37,15 @@ public class ListCommand : ICommand
     //
     // Abrindo o navegador de nodos.
     //
-    var repositoryOpener = new RepositoryOpener();
+    var repositoryOpener = new RepositoryCreator();
     var repositoryNavigator =
-        await repositoryOpener.OpenRepositoryNavigatorAsync(CatalogPath);
+        await repositoryOpener.CreateRepositoryNavigatorAsync(CatalogPath);
 
     //
     // Navegando e imprimindo o resultado da pesquisa.
     //
     var items = repositoryNavigator.List(this.SearchPattern);
-    foreach (var item in items)
+    foreach (var item in items.OrderBy(x => x))
     {
       await Console.Out.WriteLineAsync(item);
     }

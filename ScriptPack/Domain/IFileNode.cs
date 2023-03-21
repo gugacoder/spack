@@ -8,11 +8,6 @@ namespace ScriptPack.Domain;
 public interface IFileNode : INode
 {
   /// <summary>
-  /// Obtém ou define a descrição do nodo do arquivo.
-  /// </summary>
-  string? Description { get; set; }
-
-  /// <summary>
   /// Obtém ou define o caminho relativo do arquivo referente.
   /// </summary>
   [JsonIgnore]

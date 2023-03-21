@@ -5,7 +5,7 @@ namespace ScriptPack.Domain;
 /// <summary>
 /// Representa uma sequência dos scripts selecionados para execução.
 /// </summary>
-public class PipelineNode : AbstractNode
+public class PipelineNode : AbstractNode, IPipeNode
 {
   /// <summary>
   /// Cria uma nova instância da classe PipelineNode.

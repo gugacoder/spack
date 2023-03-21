@@ -13,11 +13,6 @@ public class ConnectionNode : AbstractNode
   }
 
   /// <summary>
-  /// Descrição da base de dados.
-  /// </summary>
-  public string? Description { get; set; }
-
-  /// <summary>
   /// Determina se a conexão deve ser usada como conexão padrão em caso de
   /// omissão.
   /// </summary>
@@ -55,20 +50,6 @@ public class ConnectionNode : AbstractNode
   /// Driver de base de dados.
   /// </summary>
   public string Provider { get; set; } = nameof(Providers.SqlServer);
-
-  /// <summary>
-  /// O caminho virtual do nodo dentro da árvore de nodos.
-  /// </summary>
-  [JsonIgnore]
-  public override string Path
-  {
-    get
-    {
-      return Parent?.Path?.EndsWith("/") == true
-       ? $"{Parent?.Path}{Name}.connection"
-       : $"{Parent?.Path}/{Name}.connection";
-    }
-  }
 
   /// <summary>
   /// Fábrica de conexão de base de dados baseado em consulta SQL.

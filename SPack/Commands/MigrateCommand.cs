@@ -3,6 +3,7 @@ using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 using ScriptPack.Helpers;
 using ScriptPack.Model;
+using SPack.Helpers;
 
 namespace SPack.Commands;
 
@@ -23,6 +24,15 @@ public class MigrateCommand : ICommand
   public string? CatalogPath { get; set; }
 
   /// <summary>
+  /// Obtém ou define os pacotes a serem carregados.
+  /// Cada pacote tem a forma:
+  ///   PRODUTO[/VERSÃO[/MÓDULO[/PACOTE]]]
+  /// Exemplo:
+  ///   MyProduct/1.0.0/MyModule/MyPackage
+  /// </summary>
+  public List<string> SearchPackageCriteria { get; set; } = new();
+
+  /// <summary>
   /// Obtém ou define os filtros de script a serem aplicados.
   /// Um filtro é um padrão de pesquisa de pastas e arquivos virtuais na
   /// árvode de nodos do catálogo.
@@ -30,7 +40,7 @@ public class MigrateCommand : ICommand
   /// Por exemplo, para selecionar todos os scripts da versão 1.0.0 disponível
   /// no catálogo o filtro poderia ser: **/1.0.0.
   /// </summary>
-  public List<string> ScriptFilters { get; set; } = new();
+  public List<string> SearchScriptCriteria { get; set; } = new();
 
   /// <summary>
   /// Obtém ou define os mapas de configuração de conexão.
@@ -49,11 +59,37 @@ public class MigrateCommand : ICommand
     //
     // Abrindo o catálogo.
     //
-    var repositoryOpener = new RepositoryOpener { DetectDependencies = true };
+    var repositoryOpener = new RepositoryCreator { DetectDependencies = true };
     var repositoryNavigator =
-        await repositoryOpener.OpenRepositoryNavigatorAsync(CatalogPath);
+        await repositoryOpener.CreateRepositoryNavigatorAsync(CatalogPath);
 
     var rootNode = repositoryNavigator.RootNode;
+
+    //
+    // Selecionando nodos.
+    //
+    var nodeSelector = new NodeSelector();
+    nodeSelector.SearchPackageCriteria = SearchPackageCriteria;
+    nodeSelector.SearchScriptCriteria = SearchScriptCriteria;
+    var selectedNodes = nodeSelector.SelectNodes(rootNode);
+
+    //
+    // Montando pipelines.
+    //
+    var pipelineBuilder = new PipelineBuilder();
+    pipelineBuilder.AddScriptsFromNodes(selectedNodes);
+    var pipelines = pipelineBuilder.BuildPipelines();
+
+    //
+    // Detectando e reportando falhas.
+    //
+    var faultReporter = new FaultReporter();
+    var faultReport = faultReporter.CreateFaultReport(pipelines);
+    if (faultReport.Length > 0)
+    {
+      faultReporter.PrintFaultReport(faultReport);
+      return;
+    }
 
     //
     // Configurando as conexões.
@@ -62,29 +98,6 @@ public class MigrateCommand : ICommand
     {
       var connectionConfigurator = new ConnectionConfigurator();
       connectionConfigurator.ConfigureConnections(rootNode, ConnectionMaps);
-    }
-
-    //
-    // Montando pipelines.
-    //
-    var pipelineBuilder = new PipelineBuilder();
-    var treeNodeNavigator = new TreeNodeNavigator(rootNode);
-    foreach (var scriptFilter in ScriptFilters)
-    {
-      var nodes = treeNodeNavigator.ListNodes(scriptFilter);
-      pipelineBuilder.AddScriptsFromNodes(nodes);
-    }
-
-    var pipelines = pipelineBuilder.BuildPipelines();
-
-    //
-    // Detectando e reportando falhas.
-    //
-    var faultReport = CreateFaultReport(pipelines);
-    if (faultReport.Length > 0)
-    {
-      PrintFaultReport(faultReport);
-      return;
     }
 
     //
@@ -109,22 +122,22 @@ public class MigrateCommand : ICommand
   private void RegisterListeners(DatabaseMigrator databaseMigrator)
   {
     databaseMigrator.OnPipelineStart += (sender, args) =>
-      Console.WriteLine($"PIPELINE {args.Phase.Name}");
+      Console.WriteLine($"+- PIPELINE {args.Phase.Name}");
     databaseMigrator.OnStageStart += (sender, args) =>
-      Console.WriteLine($"+- STAGE {args.Phase.Name}");
+      Console.WriteLine($"   +- STAGE {args.Phase.Name}");
     databaseMigrator.OnConnection += (sender, args) =>
-      Console.WriteLine($"   +- BASE {args.Connection.Database}");
+      Console.WriteLine($"      +- BASE {args.Connection.Database}");
     databaseMigrator.OnConnectionMessage += (sender, args) =>
-      Console.WriteLine($"            {args.Message}");
+      Console.WriteLine($"               {args.Message}");
     databaseMigrator.OnStepStart += (sender, args) =>
-      Console.WriteLine($"   +- STEP {args.Phase.Name}");
+      Console.WriteLine($"      +- STEP {args.Phase.Name}");
     databaseMigrator.OnMigrate += (sender, args) =>
-      Console.WriteLine($"      +- {args.Script.Name}");
+      Console.WriteLine($"         +- {args.Script.Name}");
     databaseMigrator.OnSuccess += (sender, args) =>
-      Console.WriteLine("            [ OK ]");
+      Console.WriteLine("               [ OK ]");
     databaseMigrator.OnError += (sender, args) =>
     {
-      Console.WriteLine("            [ ERRO ]");
+      Console.WriteLine("               [ ERRO ]");
       if (args.Script != null)
       {
         Console.Error.WriteLine($"Causa: {args.Exception.Message}");
@@ -144,62 +157,5 @@ public class MigrateCommand : ICommand
         Console.Error.WriteLine();
       }
     };
-  }
-
-  /// <summary>
-  /// Cria um relatório de erros ocorridos nos pipelines e seus scripts
-  /// </summary>
-  /// <param name="pipelines">
-  /// Lista de objetos PipelineNode para análise de erros.
-  /// </param>
-  /// <returns>
-  /// Uma tupla contendo o nó e um array de erros relacionados.
-  /// </returns>
-  private (INode Node, Fault[] Faults)[] CreateFaultReport(
-      List<PipelineNode> pipelines)
-  {
-    var pipelineFaults =
-        from pipeline in pipelines
-        from node in pipeline.DescendantsAndSelf()
-        from fault in node.Faults
-        select (node, fault);
-
-    var scriptFaults =
-        from pipeline in pipelines
-        from step in pipeline.Descendants<StepNode>()
-        from script in step.Scripts
-        from node in script.Ancestor<CatalogNode>()!.DescendantsAndSelf()
-        from fault in node.Faults
-        select (node, fault);
-
-    var faultReport = (
-        from entry in pipelineFaults.Concat(scriptFaults).Distinct()
-        group entry by entry.node into g
-        select (node: g.Key, faults: g.Select(x => x.fault).ToArray())
-    ).ToArray();
-
-    return faultReport;
-  }
-
-  /// <summary>
-  /// Imprime um relatório de erros.
-  /// </summary>
-  /// <param name="faultReport">
-  /// Uma matriz de tuplas contendo o nó e um array de erros relacionados.
-  /// </param>
-  private void PrintFaultReport((INode Node, Fault[] Faults)[] faultReport)
-  {
-    Console.Error.WriteLine("Foram contrados erros:");
-    Console.Error.WriteLine();
-    foreach (var (node, faults) in faultReport)
-    {
-      Console.Error.WriteLine(node.Path);
-      foreach (var fault in faults)
-      {
-        Console.Error.WriteLine($"- {fault.Message}");
-      }
-      Console.Error.WriteLine();
-    }
-    return;
   }
 }

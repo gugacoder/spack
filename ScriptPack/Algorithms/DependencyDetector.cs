@@ -69,9 +69,9 @@ public class DependencyDetector
 
     while ((line = await scriptReader.ReadLineAsync()) != null)
     {
-      var tokens = line.Split("--");
+      var tokens = line.Split("--", 2);
       var statements = tokens.First().Trim();
-      var comments = string.Join("--", tokens.Skip(1)).Trim();
+      var comments = tokens.Last().Trim();
 
       if (comments.Contains("@depende-apenas-de"))
       {

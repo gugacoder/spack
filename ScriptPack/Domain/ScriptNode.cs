@@ -27,21 +27,6 @@ public class ScriptNode : AbstractFileNode
   public string Tag { get; set; } = "";
 
   /// <summary>
-  /// O caminho virtual do nodo dentro da árvore de nodos.
-  /// </summary>
-  [JsonIgnore]
-  public override string Path
-  {
-    get
-    {
-      var fileName = System.IO.Path.GetFileName(FilePath);
-      return Parent?.Path?.EndsWith("/") == true
-       ? $"{Parent?.Path}{fileName}"
-       : $"{Parent?.Path}/{fileName}";
-    }
-  }
-
-  /// <summary>
   /// Scripts dos quais este script depende.
   /// </summary>
   [JsonIgnore]

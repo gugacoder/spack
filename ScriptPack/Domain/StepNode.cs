@@ -3,7 +3,7 @@ namespace ScriptPack.Domain;
 /// <summary>
 /// Bloco de execução de scripts dentro de um pipeline.
 /// </summary>
-public class StepNode : AbstractNode
+public class StepNode : AbstractNode, IPipeNode
 {
   public StepNode()
   {

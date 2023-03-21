@@ -26,6 +26,16 @@ public interface INode
   string Name { get; set; }
 
   /// <summary>
+  /// Obtém ou define o título do nodo do arquivo.
+  /// </summary>
+  string? Title { get; set; }
+
+  /// <summary>
+  /// Obtém ou define a descrição do nodo do arquivo.
+  /// </summary>
+  string? Description { get; set; }
+
+  /// <summary>
   /// Obtém ou define um valor que indica se o nodo do arquivo está habilitado.
   /// Se estiver desabilitado, o conteúdo do nodo não será executado.
   /// </summary>

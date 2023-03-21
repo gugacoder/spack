@@ -11,8 +11,8 @@ public class CatalogNode : AbstractFileNode
 {
   public CatalogNode()
   {
-    this.Products = new NodeList<ProductNode>();
     this.Connections = new NodeList<ConnectionNode>();
+    this.Products = new NodeList<ProductNode>();
   }
 
   /// <summary>

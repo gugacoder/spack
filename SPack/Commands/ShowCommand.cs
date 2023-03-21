@@ -5,6 +5,7 @@ using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 using ScriptPack.Helpers;
 using ScriptPack.Model;
+using SPack.Helpers;
 
 namespace SPack.Commands;
 
@@ -46,9 +47,9 @@ public class ShowCommand : ICommand
     //
     // Abrindo o navegador de nodos.
     //
-    var repositoryOpener = new RepositoryOpener();
+    var repositoryOpener = new RepositoryCreator();
     var repositoryNavigator =
-        await repositoryOpener.OpenRepositoryNavigatorAsync(CatalogPath);
+        await repositoryOpener.CreateRepositoryNavigatorAsync(CatalogPath);
 
     //
     // Navegando pelos nodos.

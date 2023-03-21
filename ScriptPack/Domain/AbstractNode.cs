@@ -2,6 +2,8 @@ using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
+using Humanizer;
+using ScriptPack.Helpers;
 
 namespace ScriptPack.Domain;
 
@@ -12,6 +14,7 @@ namespace ScriptPack.Domain;
 public abstract class AbstractNode : INode
 {
   private Dictionary<string, object> children = new();
+  private string? _title;
 
   /// <summary>
   /// Construtor padrão que inicializa a lista de erros de compilação do
@@ -33,6 +36,20 @@ public abstract class AbstractNode : INode
   public virtual string Name { get; set; } = "";
 
   /// <summary>
+  /// Obtém ou define o título do nodo do arquivo.
+  /// </summary>
+  public virtual string? Title
+  {
+    get => _title ?? Name.Titleize();
+    set => _title = value;
+  }
+
+  /// <summary>
+  /// A descrição do nodo.
+  /// </summary>
+  public virtual string? Description { get; set; }
+
+  /// <summary>
   /// Indica se o conteúdo da seção está habilitado.
   /// Se estiver desabilitado, o conteúdo da seção não será executado.
   /// </summary>
@@ -42,9 +59,7 @@ public abstract class AbstractNode : INode
   /// O caminho virtual do nodo dentro da árvore de nodos.
   /// </summary>
   [JsonIgnore]
-  public virtual string Path => Parent?.Path?.EndsWith("/") == true
-      ? $"{Parent?.Path}{Name}"
-      : $"{Parent?.Path}/{Name}";
+  public virtual string Path => VirtualPath.CreateNodePath(this);
 
   /// <summary>
   /// Lista de erros de compilação do script.
@@ -108,6 +123,11 @@ public abstract class AbstractNode : INode
       task = method?.Invoke(child, new object[] { visitor }) as Task;
       if (task != null) await task;
     }
+  }
+
+  public override string ToString()
+  {
+    return $"{Path} ({base.ToString()})";
   }
 
   #region Implementação de automação da composição de árvore de nodos

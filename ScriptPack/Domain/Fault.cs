@@ -1,3 +1,4 @@
+using System.Text;
 using ScriptPack.Helpers;
 
 namespace ScriptPack.Domain;

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using ScriptPack.Helpers;
 
 namespace ScriptPack.Domain;
 
@@ -13,6 +14,7 @@ public class VersionNode : AbstractFileNode
   public VersionNode()
   {
     this.Modules = new();
+    this.Packages = new();
   }
 
   /// <summary>
@@ -22,12 +24,22 @@ public class VersionNode : AbstractFileNode
   public string Version { get; set; } = string.Empty;
 
   /// <summary>
-  /// Obtém ou define os módulos do produto.
+  /// Obtém ou define os módulos da versão.
   /// </summary>
   [JsonIgnore]
   public NodeList<ModuleNode> Modules
   {
     get => Get<NodeList<ModuleNode>>();
+    set => Set(value);
+  }
+
+  /// <summary>
+  /// Obtém ou define os pacotes da versão.
+  /// </summary>
+  [JsonIgnore]
+  public NodeList<PackageNode> Packages
+  {
+    get => Get<NodeList<PackageNode>>();
     set => Set(value);
   }
 }

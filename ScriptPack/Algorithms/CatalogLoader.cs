@@ -1,372 +1,700 @@
+using System.Xml.Linq;
 using System.Text.Json;
 using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 using ScriptPack.Helpers;
-using ScriptPack.Model;
+using System.Collections;
+using static System.IO.SearchOption;
 
 namespace ScriptPack.Algorithms;
 
-//
-//  NT-01 (Nota Técnica #1)
-//
-//  O algoritmo abaixo é responsável por carregar os catálogos de scripts na
-//  sequência catálogo -> produto -> versão -> módulo -> pacote -> script.
-//
-//  Em geral, existem arquivos de definição de todos estes nodos exceto para
-//  definição do produto. Para fins de facilitade de uso, o arquivo do produto,
-//  chamado de "product.json", é o mesmo arquivo de definição de versão.
-//
-//  Os arquivos gerais são:
-//
-//  -   Catálogo: "catalog.json" (obrigatório)
-//  -   Versão: "product.json" (opcional)
-//  -   Módulo: "module.json" (opcional)
-//  -   Pacote: "package.json" (opcional)
-//
-//  Exemplo:
-//      /catalogo.json
-//      /MeuProduto/tags/1.0.0/product.json
-//      /MeuProduto/tags/1.0.0/MeuModulo/module.json
-//      /MeuProduto/tags/1.0.0/MeuModulo/MeuPacote/package.json
-//      /MeuProduto/trunk/product.json
-//      /MeuProduto/trunk/MeuModulo/module.json
-//      /MeuProduto/trunk/MeuModulo/MeuPacote/package.json
-//
-//  Para resolver o problema de falta de definição de produto, o algoritmo
-//  abaixo carrega as versões a partir do arquivo e não carrega o arquivo de
-//  produto a priori.
-//
-//  Na etapa de finalização da estrtura de catálogo, quando as relações de
-//  parentesco de nodos é criada, o algoritmo agrupa as versões e carrega um
-//  produto para cada grupo com base no arquivo da versão mais recente.
-//  
-
-/// <summary>
-/// Utilitário para carregamento de catálogo a partir de uma pasta de scripts,
-/// um arquivo compactado ou qualquer instância de <see cref="IDrive"/>.
-/// </summary>
 public class CatalogLoader
 {
-  private readonly PathPatternInterpreter _pathPatternInterpreter = new();
+  private PathPatternInterpreter _pathPatternInterpreter = new();
 
   /// <summary>
-  /// Carrega os catálogos disponíveis no drive.
+  /// Carrega um array de nodos de catálogo e todos os seus subnodos a partir do
+  /// <see cref="IDrive"/> fornecido.
   /// </summary>
-  /// <remarks>
-  /// O ScriptPack é organizado em produto -> módulo -> pacote -> script.
-  /// 
-  /// Esta é a estrutura obrigatória final do catálogo.
-  /// Porém, não é necessário definir explicitamente arquivos JSON para cada
-  /// um destes componentes.
-  /// 
-  /// Este algoritmo se encarrega de detectar quais arquivos JSON estão
-  /// faltando e criar os componentes faltantes com base em algum outro
-  /// arquivo JSON existente.
-  /// 
-  /// A decisão de qual arquivo usar como base segue a seguinte definição:
-  /// 
-  /// -   Se o pacote não existe, um é criado com base no módulo.
-  /// -   Se o módulo não existe, um é criado com base no produto.
-  /// -   Se o produto não existe, um é criado com base no catálogo.
-  ///</remarks>
   /// <param name="drive">
-  /// Drive a ser carregado.
+  /// O objeto <see cref="IDrive"/> que representa o driver a ser usado para
+  /// carregar os nodos de catálogo.
   /// </param>
   /// <returns>
-  /// Lista de catálogos carregados.
+  /// Um array de objetos <see cref="CatalogNode"/>, representando os nodos de
+  /// catálogo e seus subnodos.
   /// </returns>
-  public async Task<List<CatalogNode>> ReadCatalogAsync(IDrive drive)
+  public async Task<CatalogNode[]> LoadCatalogsAsync(IDrive drive)
   {
     //
-    // Leia a NT-01 no início deste arquivo para entender esta parte.
+    // A lista de caminhos contém os arquivos de descrição da estrutura do
+    // catálogo e os caminhos de pastas de scripts. Pastas são terminadas em
+    // barra (/) para diferenciação.
+    // Exemplo:
+    //    /pasta/catalog.json
+    //    /pasta/catalog/package.json
+    //    /pasta/catalog/scripts/
     //
-    // Note que não estamos carregando os produtos. Os arquivos de produtos,
-    // chamados de "product.json", ocorrem várias vezes na estrtura de
-    // arquivos, uma vez para cada versão do produto. No mesmo arquivo é
-    // definido o nome do produto e o número de versão.
-    //
-    // O que fazemos é carregar os arquivos de produtos diretamente nas
-    // instancias de versão e posteriormente criamos as instâncias de
-    // produto pelo agrupamento destas versões, assim termos apenas um arquivo
-    // de produto por produto e não um arquivo de produto por versão.
-    // 
-    var catalogs = await ReadNodesAsync<CatalogNode>(drive);
-    var products = new List<ProductNode>();
-    var versions = await ReadNodesAsync<VersionNode>(drive);
-    var modules = await ReadNodesAsync<ModuleNode>(drive);
-    var packages = await ReadNodesAsync<PackageNode>(drive);
-    var scripts = await ReadNodesAsync<ScriptNode>(drive);
 
-    foreach (var script in scripts)
+    List<string> paths = GetStructuralPaths(drive);
+
+    //
+    // A lista de pastas de scripts aninhadas contém pastas de scripts que não
+    // representam um novo pacote de scripts mas apenas uma suborganização dos
+    // scripts de um pacote.
+    // Por exemplo, considere um pacote Xyz contendo uma série de scripts
+    // separados em subpastas por conveniência:
+    // 
+    //    /pasta/package.json
+    //    /pasta/sc-001.sql
+    //    /pasta/sc-002.sql
+    //    /pasta/create-tables/sc-003-tb_one.sql
+    //    /pasta/create-tables/sc-004-tb_two.sql
+    //    /pasta/create-tables/sc-005-tb_three.sql
+    //    /pasta/updates/sc-006-update_1.sql
+    //    /pasta/updates/sc-007-update_2.sql
+    // 
+    // As pastas de scripts aninhadas não modificam a estrutura do catálogo mas
+    // apenas a forma como os scripts são organizados.
+    // 
+    // Estamos destacando estas pastas e as removendo da lista de caminhos.
+    // Mais tarede no algoritmo nodos a reintroduziremos da estrutura para que
+    // seus scripts sejam carregados.
+    //
+
+    List<(string Parent, string Folder)> nestedScriptFolders =
+        ExtractNestedScriptFolders(paths);
+
+    paths.RemoveAll(p => nestedScriptFolders.Any(f => f.Folder == p));
+
+    // Lista de listas representando a estrutura do pacote.
+    // Cada lista na lista externa representa uma pasta no pacote e contém os
+    // caminhos de arquivo dos arquivos nessa pasta e suas pastas ancestrais.
+    // O caminho começa pelo catálogo e termina na própria pasta de scripts.
+    // Note que apenas os arquivos vistos na estrutura ancestral da pasta são
+    // destacados. Esta lista pode estar incompleta já que a organização de
+    // pastas do ScriptPack é bem flexível.
+    // De uma forma geral a lista de caminhos terá uma aparência como esta:
+    //    /catalog.json
+    //    /catalog/product.json
+    //    /catalog/product/module.json
+    //    /catalog/product/module/package.json
+    //    /catalog/product/module/scripts/
+
+    List<List<string>> packagePathStructures =
+        OrganizePackagePathStructures(paths);
+
+    // A estrutura obtida acima pode esta incompleta já que a organização de
+    // pastas do ScriptPack é bem flexível.
+    // O algoritmo abaixo valida esta estrutura e acrescenta nela os arquivos
+    // de configuração faltantes, sendo eles:
+    // -  catalog.json
+    // -  product.json
+    // -  module.json
+    // -  package.json
+    // 
+    // O resultado final é uma lista organizada hierarquicamente contendo
+    // todos os arquivos de configuração necessários e os seus respectivos
+    // tipos para que possam ser finalmente construídos.
+    // Exemplo:
+    //    ( CatalogNode, "/catalog.json" )
+    //    ( ProductNode, "/catalog/product.json" )
+    //    ( ModuleNode, "/catalog/product/module.json" )
+    //    ( PackageNode, "/catalog/product/module/package.json" )
+    //    ( ScriptNode, "/catalog/product/module/scripts/" )
+    // Note que módulo pode ocorrer várias vezes criando uma estrtura de odos
+    // aninhados.
+
+    List<List<(Type Type, string Path)>> packagePathHierarchies =
+        CreatePackagePathHierarchies(packagePathStructures);
+
+    // Agora, com a estrutura hierarquica completa, nodos podemos devolver
+    // para a lista as pastas de scripts aninhados, para que possam ser
+    // carregados.
+
+    foreach (var (parent, folder) in nestedScriptFolders)
     {
-      await AdoptScriptIntoPackage(drive, script,
-          packages, modules, versions, products, catalogs);
+      var hierarchy = packagePathHierarchies.FirstOrDefault(
+          hierarchy => hierarchy.Any(e => e.Path == parent))!;
+
+      // Note que as pastas de scripts aninhas estão sendo incluídas depois da
+      // pasta de scripts raiz.
+      hierarchy.Add((typeof(ScriptNode), folder));
     }
 
-    //
-    // Leia a NT-01 no início deste arquivo para entender esta parte.
-    //
-    // Depois de carregar produtos com base em versões podemos modificar os
-    // nomes das versões para que reflitam a versão do produto.
-    //
-    versions.ForEach(v => v.Name = v.Version);
+    // foreach (var hierarchy in packagePathHierarchies)
+    // {
+    //   var folder = hierarchy.Last().Path;
+    //   Console.WriteLine(folder);
+    //   foreach (var (type, path) in hierarchy)
+    //   {
+    //     Console.WriteLine($"  {type.Name} -> {path}");
+    //   }
+    // }
 
-    // Obtendo apenas catálogos com pelo menos um script definido.
-    catalogs = catalogs.Where(c => c.Descendants<ScriptNode>().Any()).ToList();
-    catalogs.ForEach(c => c.Drive = drive);
-    return catalogs;
+    // As hierarquias de pacote agora contém informação sobre todos os nodos
+    // necessários, na ordem de precedência correta, isto é:
+    //    Catalog -> Product -> Version -> Module -> Package -> Script
+    // Sendo que módulos podem ocorrer várias vezes, criando uma estrutura de
+    // módulos e submódulos.
+    // E contém ainda pastas de scripts aninhadas, quando aplicável.
+    //
+    // Agora podemos finalmente instanciar os nodos da hieraquia do pacote.
+
+    List<CatalogNode> catalogs = await CreateCatalogNodeTreeAsync(
+        drive, packagePathHierarchies);
+
+    // foreach (var catalog in catalogs)
+    // {
+    //   foreach (var node in catalog.DescendantsAndSelf())
+    //   {
+    //     Console.Write(new string(' ', node.Ancestors().Count() * 2));
+    //     Console.WriteLine(node);
+    //   }
+    // }
+
+    return catalogs.ToArray();
   }
 
   /// <summary>
-  /// Adota um script em um pacote existente ou cria um novo pacote com base
-  /// em um módulo existente ou cria um novo módulo com base em um produto
-  /// existente ou cria um novo produto com base em um catálogo existente.
+  /// Obtém a lista de todos os caminhos de interesse, incluindo arquivos com as
+  /// extensões .json e .sql e os arquivos legados com extensão .info.
   /// </summary>
   /// <remarks>
-  /// Durante a execução deste método, a estrtura de árvore de um script é
-  /// organizada e associada. O resultado final da execução deste método é
-  /// uma árvore de scripts completa, do produto aos scripts.
+  /// A estrutura do ScriptPack inclui os seguintes arquivos:
+  /// - catalog.json
+  /// - product.json
+  /// - module.json
+  /// - package.json
   /// </remarks>
-  private async Task AdoptScriptIntoPackage(IDrive drive, ScriptNode script,
-      List<PackageNode> packages, List<ModuleNode> modules,
-      List<VersionNode> versions, List<ProductNode> products,
-      List<CatalogNode> catalogs)
+  /// <param name="drive">
+  /// O objeto IDrive que representa o driver a ser analisado.
+  /// </param>
+  /// <returns>
+  /// A lista de caminhos de interesse encontrados.
+  /// Caminhos de pastas terminam com uma barra.
+  /// Exemplo:
+  ///     /pasta/catalog.json
+  ///     /pasta/catalog/package.json
+  ///     /pasta/catalog/scripts/
+  /// </returns>
+  private List<string> GetStructuralPaths(IDrive drive)
   {
-    if (script?.FilePath == null)
-      throw new InvalidOperationException(
-          "É necessário que o script exista fisicamente para ser processado.");
+    var paths = new List<string>();
 
-    var package = script?.Parent as PackageNode ?? packages
-        .Where(n => n.FilePath != null)
-        .OrderByDescending(n => n.FilePath!.Length)
-        .FirstOrDefault(n =>
-            script?.FilePath?.StartsWith(n.FileFolder!) == true);
-
-    // Se o pacote já está associado a um modulo então sua árvore já está
-    // completa. Podemos prosseguir daqui.
-    if (package?.Parent != null)
+    // Nova estrutura
+    var novosArquivos = new List<string> {
+        "catalog.json",
+        "product.json",
+        "module.json",
+        "package.json"
+    };
+    foreach (var arquivo in novosArquivos)
     {
-      package.Scripts.Add(script!);
+      paths.AddRange(drive.GetFiles("/", arquivo, AllDirectories));
+    }
+
+    // Pastas de scripts
+    paths.AddRange(drive
+        .GetDirectories("/", "*", AllDirectories)
+        .SelectMany(pasta => drive.GetFiles(pasta, "*.sql", AllDirectories))
+        .Select(arquivo => $"{Path.GetDirectoryName(arquivo)}/")
+        .Distinct());
+
+    return paths;
+  }
+
+  /// <summary>
+  /// Extrai pastas aninhadas de uma lista de caminhos de arquivos.
+  /// </summary>
+  /// <param name="paths">Lista de caminhos de arquivos.</param>
+  /// <remarks>
+  /// As pastas aninhadas são pastas criadas para organizar scripts, mas
+  /// ainda fazem parte do mesmo pacote. Para a análise realizada por este
+  /// método, apenas a pasta raiz de cada pacote é relevante.
+  /// 
+  /// Por exemplo, considere a seguinte lista de caminhos:
+  ///      /MyPackage/pakage.json
+  ///      /MyPackage/sc-001.sql
+  ///      /MyPackage/SubPasta/sc-002.sql
+  /// 
+  /// Neste caso, o método considera a pasta "SubPasta" como uma pasta aninhada
+  /// e inclui apenas a pasta raiz "MyPackage" na lista de pastas aninhadas.
+  /// </remarks>
+  /// <returns>Uma lista de tuplas representando pastas aninhadas.</returns> 
+  private List<(string Parent, string Folder)> ExtractNestedScriptFolders(
+      List<string> paths)
+  {
+    List<(string Parent, string Folder)> nestedScriptFolders = new();
+
+    var folders = paths.Where(path => path.EndsWith("/"));
+    var files = paths.Where(path => !path.EndsWith("/"));
+
+    // Loop através de cada caminho para determinar se ele é aninhado ou não
+    foreach (var targetFolder in folders)
+    {
+      // Encontre a pasta pai em potencial da pasta alvo
+      var potentialParentFolder = (
+          from folder in folders.Except(new[] { targetFolder })
+          where targetFolder.StartsWith(folder)
+          orderby folder.Length descending
+          select folder
+      ).FirstOrDefault();
+
+      // Se não houver pasta pai em potencial, vá para a próxima iteração
+      if (potentialParentFolder == null)
+      {
+        continue;
+      }
+
+      // Encontre a pasta de configuração pai da pasta alvo
+      var configParentFolder = (
+          from file in files
+          let folder = $"{Path.GetDirectoryName(file)}/"
+          where targetFolder.StartsWith(folder)
+          orderby folder.Length descending
+          select folder
+      ).FirstOrDefault();
+
+      // Determine se a pasta alvo é aninhada ou não
+      var isNested = configParentFolder == null
+          || configParentFolder.Length <= potentialParentFolder.Length;
+
+      // Se a pasta alvo for aninhada, adicione-a à lista nestedScriptFolders
+      if (isNested)
+      {
+        nestedScriptFolders.Add(new(potentialParentFolder, targetFolder));
+      }
+    }
+
+    return nestedScriptFolders;
+  }
+
+  /// <summary>
+  /// Extrai a estrutura de um pacote a partir de uma lista de caminhos de
+  /// arquivos virtuais.
+  /// </summary>
+  /// <param name="paths">
+  /// Uma lista de caminhos de arquivos virtuais para extrair a estrutura do
+  /// pacote.
+  /// </param>
+  /// <remarks>
+  /// Lista de listas representando a estrutura do pacote.
+  /// Cada lista na lista externa representa uma pasta no pacote e contém os
+  /// caminhos de arquivo dos arquivos nessa pasta e suas pastas ancestrais.
+  /// O caminho começa pelo catálogo e termina na própria pasta de scripts.
+  /// Note que apenas os arquivos vistos na estrutura ancestral da pasta são
+  /// destacados. Esta lista pode estar incompleta já que a organização de
+  /// pastas do ScriptPack é bem flexível.
+  /// De uma forma geral a lista de caminhos terá uma aparência como esta:
+  ///    /catalog.json
+  ///    /catalog/product.json
+  ///    /catalog/product/module.json
+  ///    /catalog/product/module/package.json
+  ///    /catalog/product/module/scripts/
+  /// </remarks>
+  /// <returns>
+  /// Uma lista de listas representando a estrutura do pacote. Cada lista na
+  /// lista externa representa uma pasta no pacote e contém os caminhos de
+  /// arquivo dos arquivos nessa pasta e suas pastas ancestrais.
+  /// </returns>
+  private List<List<string>> OrganizePackagePathStructures(List<string> paths)
+  {
+    // Lista de listas representando a estrutura do pacote.
+    // Cada lista na lista externa representa uma pasta no pacote e contém os
+    // caminhos de arquivo dos arquivos nessa pasta e suas pastas ancestrais.
+    // O caminho começa pelo catálogo e termina na própria pasta de scripts.
+    // Note que apenas os arquivos vistos na estrutura ancestral da pasta são
+    // destacados. Esta lista pode estar incompleta já que a organização de
+    // pastas do ScriptPack é bem flexível.
+    // De uma forma geral a lista de caminhos terá uma aparência como esta:
+    //    /catalog.json
+    //    /catalog/product.json
+    //    /catalog/product/module.json
+    //    /catalog/product/module/package.json
+    //    /catalog/product/module/scripts/
+    var packageStructures = new List<List<string>>();
+
+    var folders = paths.Where(path => path.EndsWith("/"));
+    var files = paths.Where(path => !path.EndsWith("/"));
+
+    foreach (var folderToCheck in folders.OrderBy(x => x))
+    {
+      var ancestorFiles = (
+          from possibleParentFile in files
+          let fileFolder = $"{Path.GetDirectoryName(possibleParentFile)}/"
+          where folderToCheck.StartsWith(fileFolder)
+          orderby fileFolder.Length descending
+          select possibleParentFile
+      ).ToList();
+
+      var seenFiles = new HashSet<string>();
+      ancestorFiles.RemoveAll(fileToCheck =>
+      {
+        var currentFileName = Path.GetFileName(fileToCheck);
+        if (currentFileName == "module.json")
+        {
+          return false;
+        }
+        if (seenFiles.Contains(currentFileName))
+        {
+          return true;
+        }
+        seenFiles.Add(currentFileName);
+        return false;
+      });
+
+      // Adicionando a própria pasta no final da lista.
+      ancestorFiles.Add(folderToCheck);
+      packageStructures.Add(ancestorFiles);
+    }
+
+    return packageStructures;
+  }
+
+  /// <summary>
+  /// Cria a hierarquia de pacotes a partir das estruturas de caminho de pacote.
+  /// </summary>
+  /// <param name="packagePathStructures">
+  /// Lista de estruturas de caminho de pacote a serem processadas.
+  /// A lista de caminhos terá uma aparência como esta:
+  ///    /catalog.json
+  ///    /catalog/product.json
+  ///    /catalog/product/module.json
+  ///    /catalog/product/module/package.json
+  ///    /catalog/product/module/scripts/
+  /// </param>
+  /// <remarks>
+  /// Algumas partes da estrutura de nodos são obrigatórias, por exemplo:
+  ///
+  /// - Catálogo: necessário para agrupar os pacotes lidos de um mesmo Drive e
+  /// contém informações sobre as conexões de banco de dados.
+  ///
+  /// - Produto e Versão: necessário para identificar pacotes de scripts.
+  /// O algoritmo de migração persiste na base de dados esta informação de
+  /// produto e versão para identificar os pacotes que já foram migrados.
+  ///
+  /// - Pacote: contém as regras de migração dos scripts, como conexão destino e
+  /// proridade de pacotes.
+  ///
+  /// Quando não há arquivo disponível no Drive para descrevê-las, elas são
+  /// criadas com valores padrão.
+  /// </remarks>
+  /// <returns>
+  /// Uma lista de hierarquias de pacotes, onde cada hierarquia é uma lista de
+  /// tuplas (Type, Path) representando a hierarquia de tipos de pacote
+  /// encontrada.
+  /// </returns>
+  private List<List<(Type Type, string Path)>> CreatePackagePathHierarchies(
+      List<List<string>> packagePathStructures)
+  {
+    var packageHierarchyStructures =
+        new List<List<(Type Type, string Path)>>();
+
+    foreach (var packagePathStructure in packagePathStructures)
+    {
+      var hierarchy = new List<(Type Type, string Path)>();
+
+      var queue = new Queue<string>(
+          from file in packagePathStructure
+          let folder = $"{Path.GetDirectoryName(file)}/"
+          let hierarchicalOrder = Path.GetFileName(file) switch
+          {
+            "catalog.json" => 0,
+            "product.json" => 1,
+            "module.json" => 2,
+            "package.json" => 3,
+            _ => 4
+          }
+          orderby folder.Length, hierarchicalOrder
+          select file
+      );
+
+      EnsurePath<CatalogNode>(queue, hierarchy, "catalog.json");
+      EnsurePath<ProductNode>(queue, hierarchy, "product.json");
+      EnsurePath<VersionNode>(queue, hierarchy, "product.json");
+
+      while (queue.Peek().EndsWith("module.json"))
+      {
+        hierarchy.Add(new(typeof(ModuleNode), queue.Dequeue()));
+      }
+
+      EnsurePath<PackageNode>(queue, hierarchy, "package.json");
+
+      // O último item restante na fila é a pasta de scripts.
+      if (queue.Count != 1)
+      {
+        var path = queue.Last();
+        throw new ArgumentException("A pasta de scripts não contém uma " +
+            $"estrutura hierárquica válida: {path}");
+      }
+
+      // Validando a estrutura legada do ScriptPack.
+      //
+      // A versão corrente do ScriptPack utiliza arquivos JSON para sua
+      // configuração, mas a versão antiga se utilizava de arquivos
+      // properties.
+      //
+      // Porém, para que uma estrutura legada seja considerada válida é
+      // necessário que a pasta de scripts contenha um arquivo de configuração
+      // chamado module.info.
+
+      var lastPath = hierarchy.Last().Path;
+      if (!lastPath.EndsWith(".json") && !lastPath.EndsWith("/module.info"))
+        continue;
+
+      var targetFolder = queue.Dequeue();
+      hierarchy.Add(new(typeof(ScriptNode), targetFolder));
+
+      packageHierarchyStructures.Add(hierarchy);
+    }
+
+    return packageHierarchyStructures;
+  }
+
+  /// <summary>
+  /// Garante que o caminho esteja presente na hierarquia.
+  /// </summary>
+  /// <typeparam name="T">Tipo de nodo da hierarquia.</typeparam>
+  /// <param name="queue">Fila de caminhos a serem verificados.</param>
+  /// <param name="hierarchy">
+  /// Lista de tuplas (Tipo, Caminho) que representam a hierarquia.</param>
+  /// <param name="filenames">
+  /// Lista de nomes de arquivos a serem verificados na última camada do
+  /// caminho.
+  /// </param>
+  /// <remarks>
+  /// Verifica se a fila contém um arquivo com o nome presente em "filenames" na
+  /// última camada do caminho.
+  /// Se o arquivo existir, adiciona o tipo da hierarquia na lista e remove o
+  /// caminho da fila.
+  /// Caso contrário, adiciona o caminho na lista e verifica se a última camada
+  /// do caminho termina com '/'.
+  /// Se não terminar, adiciona o tipo da hierarquia na lista e retorna.
+  /// Caso contrário, verifica se a hierarquia já possui um nodo anterior e
+  /// adiciona o tipo da hierarquia com o caminho do último nodo na lista.
+  /// Se não tiver, adiciona o tipo da hierarquia com o caminho do arquivo
+  /// "package.json".
+  /// </remarks>
+  private void EnsurePath<T>(Queue<string> queue,
+      List<(Type Type, string Path)> hierarchy, string filename)
+          where T : INode
+  {
+    var type = typeof(T);
+
+    if (queue.Peek().EndsWith(filename))
+    {
+      hierarchy.Add(new(type, queue.Dequeue()));
       return;
     }
 
-    // Como o pacote não está associado a um módulo, precisamos criar a sua
-    // árvore completa a partir do script.
+    var path = queue.FirstOrDefault()!;
 
-    var module = package?.Parent as ModuleNode ?? modules
-        .Where(n => n.FilePath != null)
-        .OrderByDescending(n => n.FilePath!.Length)
-        .FirstOrDefault(n =>
-            package?.FilePath?.StartsWith(n.FileFolder!) == true
-            || script?.FilePath?.StartsWith(n.FileFolder!) == true);
-
-    var version = module?.Parent as VersionNode ?? versions
-        .Where(n => n.FilePath != null)
-        .OrderByDescending(n => n.FilePath!.Length)
-        .FirstOrDefault(n =>
-            module?.FilePath?.StartsWith(n.FileFolder!) == true
-            || package?.FilePath?.StartsWith(n.FileFolder!) == true
-            || script?.FilePath?.StartsWith(n.FileFolder!) == true);
-
-    var product = version?.Parent as ProductNode ?? products
-        .Where(n => n.FilePath != null)
-        .OrderByDescending(n => n.FilePath!.Length)
-        .FirstOrDefault(n =>
-            version?.FilePath?.StartsWith(n.FileFolder!) == true
-            || module?.FilePath?.StartsWith(n.FileFolder!) == true
-            || package?.FilePath?.StartsWith(n.FileFolder!) == true
-            || script?.FilePath?.StartsWith(n.FileFolder!) == true);
-
-    var catalog = product?.Parent as CatalogNode ?? catalogs
-        .Where(n => n.FilePath != null)
-        .OrderByDescending(n => n.FilePath!.Length)
-        .FirstOrDefault(n =>
-            product?.FilePath?.StartsWith(n.FileFolder!) == true
-            || version?.FilePath?.StartsWith(n.FileFolder!) == true
-            || module?.FilePath?.StartsWith(n.FileFolder!) == true
-            || package?.FilePath?.StartsWith(n.FileFolder!) == true
-            || script?.FilePath?.StartsWith(n.FileFolder!) == true);
-
-    if (version == null)
+    if (!path.EndsWith("/"))
     {
-      version = await ReadNodeFromFileAsync<VersionNode>(drive,
-          catalog!.FilePath!);
-      versions.Add(version);
+      hierarchy.Add(new(type, path));
+      return;
     }
 
-    if (product == null)
+    if (hierarchy.Count > 0)
     {
-      //
-      // Leia a NT-01 no início deste arquivo para entender esta parte.
-      //
-      // Note que o arquivo de produto é lido a partir do arquivo de versão.
-      //
-      product = await ReadNodeFromFileAsync<ProductNode>(drive,
-          version!.FilePath!);
-      products.Add(product);
+      var referencePath = hierarchy.Last();
+      hierarchy.Add(new(type, referencePath.Path));
+      return;
     }
 
-    if (module == null)
-    {
-      module = await ReadNodeFromFileAsync<ModuleNode>(drive,
-          version!.FilePath!);
-      modules.Add(module);
-    }
-
-    if (package == null)
-    {
-      package = await ReadNodeFromFileAsync<PackageNode>(drive,
-          module!.FilePath!);
-      packages.Add(package);
-    }
-
-    //
-    // Acrescentando relações de parentesco.
-    //
-    if (product.Parent == null) catalog!.Products.Add(product);
-    if (version.Parent == null) product!.Versions.Add(version);
-    if (module.Parent == null) version.Modules.Add(module);
-    if (package.Parent == null) module.Packages.Add(package);
-    if (script!.Parent == null) package.Scripts.Add(script!);
+    hierarchy.Add(new(type, $"{path}package.json"));
   }
 
   /// <summary>
-  /// Carrega todos os nodos de um determinado tipo a partir de um drive.
+  /// Cria a árvore de nodos do catálogo a partir das hierarquias de pacotes
+  /// fornecidas.
   /// </summary>
   /// <param name="drive">
-  /// Drive a ser carregado.
+  /// O objeto IDrive que representa o Drive que contém os arquivos de
+  /// configuração.
   /// </param>
-  /// <typeparam name="T">
-  /// Tipo de nodo a ser carregado.
-  /// </typeparam>
-  /// <returns>
-  /// Lista de nodos carregados.
-  /// </returns>
-  private async Task<List<T>> ReadNodesAsync<T>(IDrive drive)
-    where T : IFileNode, new()
+  /// <param name="packagePathHierarchies">
+  /// A lista de hierarquias de pacotes a serem processadas.
+  /// </param>
+  /// <returns>A lista de nodos de catálogo criados.</returns>
+  private async Task<List<CatalogNode>> CreateCatalogNodeTreeAsync(
+      IDrive drive,
+      List<List<(Type Type, string Path)>> packagePathHierarchies)
   {
-    var nodes = new List<T>();
-    string[] filePaths;
+    var nodeCache = new Dictionary<(Type, string), IFileNode>();
 
-    if (typeof(T) == typeof(ScriptNode))
+    foreach (var hierarchy in packagePathHierarchies)
     {
-      filePaths = drive.GetFiles("/", "*.sql", SearchOption.AllDirectories);
+      var configFiles = hierarchy.Where(e => e.Type != typeof(ScriptNode));
+      var scriptFolders = hierarchy.Where(e => e.Type == typeof(ScriptNode));
 
-      foreach (var filePath in filePaths)
+      IFileNode currentNode = null!;
+
+      foreach (var (type, path) in configFiles)
       {
-        var node = await ReadScriptFromFileAsync(drive, filePath);
-        nodes.Add((T)(object)node);
+        // Verifica se o nodo já foi carregado a partir do cache.
+        if (nodeCache.TryGetValue((type, path), out var cachedNode))
+        {
+          currentNode = cachedNode;
+          continue;
+        }
+
+        currentNode =
+            await LoadOrCreateNodeAsync(drive, currentNode, type, path);
+
+        // Adiciona o ndo ao cache.
+        nodeCache[(type, path)] = currentNode;
       }
-      return nodes;
+
+      PackageNode packageNode = (PackageNode)currentNode;
+      foreach (var (type, path) in scriptFolders)
+      {
+        var scripts = LoadScriptNodes(drive, path, packageNode);
+      }
     }
 
-    //
-    // Leia a NT-01 no início deste arquivo para entender esta parte.
-    //
-    // Note que o arquivo para leitura da versão é o mesmo arquivo do produto.
-    // Isso acontece porque não temos um arquivo separado para definição do
-    // produto e definição de suas versões. Na verdade temos apenas os arquivos
-    // definindo suas versões.
-    //
-    var typeName = typeof(T) == typeof(VersionNode)
-        ? nameof(ProductNode)
-        : typeof(T).Name;
-
-    if (typeName.EndsWith("Node"))
-    {
-      typeName = typeName.Substring(0, typeName.Length - "Node".Length);
-    }
-
-    var fileName = $"{typeName.ToLower()}.json";
-
-    filePaths = drive.GetFiles("/", fileName, SearchOption.AllDirectories);
-    foreach (var filePath in filePaths)
-    {
-      var node = await ReadNodeFromFileAsync<T>(drive, filePath);
-      nodes.Add(node);
-    }
-
-    return nodes;
+    return nodeCache.Values.OfType<CatalogNode>().ToList();
   }
 
   /// <summary>
-  /// Carrega o nodo do tipo especificado a partir do arquivo.
+  /// Carrega ou cria um nodo de arquivo assíncrono.
   /// </summary>
-  /// <param name="drive">
-  /// Drive a ser carregado.
+  /// <param name="drive">O drive a ser usado para carregar o arquivo.</param>
+  /// <param name="parent">O nodo pai do nodo a ser carregado ou criado.</param>
+  /// <param name="type">O tipo do nodo a ser carregado ou criado.</param>
+  /// <param name="filePath">O caminho do arquivo do nodo.</param>
+  /// <param name="parent">
+  /// O nodo pai do nodo a ser carregado ou criado.
   /// </param>
-  /// <param name="filePath">
-  /// Caminho do arquivo a ser carregado.
-  /// </param>
-  /// <typeparam name="T">
-  /// Tipo de nodo a ser carregado.
-  /// </typeparam>
-  /// <returns>
-  /// Nodo carregado.
-  /// </returns>
-  private async Task<T> ReadNodeFromFileAsync<T>(IDrive drive, string filePath)
-    where T : IFileNode, new()
+  /// <returns>O nodo carregado ou criado.</returns>
+  private async Task<IFileNode> LoadOrCreateNodeAsync(IDrive drive,
+      INode parent, Type type, string filePath)
   {
-    T node = new();
-    try
+    IFileNode? node = null;
+
+    if (drive.FileExists(filePath))
     {
-      var json = await drive.ReadAllTextAsync(filePath);
-      node = JsonSerializer.Deserialize<T>(json, JsonOptions.CamelCase)!;
-    }
-    catch (Exception ex)
-    {
-      node = new T();
-      node.Faults.Add(Fault.EmitException(ex));
+      node = await ReadConfigFileAsync(drive, parent, type, filePath);
     }
 
+    node ??= (IFileNode)Activator.CreateInstance(type)!;
     node.FilePath = filePath;
+
+    if (parent != null)
+    {
+      AddToParent(parent, node);
+    }
+
     if (string.IsNullOrEmpty(node.Name))
     {
-      var name = Path.GetFileName(Path.GetDirectoryName(filePath))!;
-      node.Name = string.IsNullOrEmpty(name) ? drive.Name : name;
-    }
-
-    if (node is CatalogNode catalog)
-    {
-      catalog.Description ??= "Catálogo de scripts.";
-    }
-
-    if (node is VersionNode product)
-    {
-      var versionTag = _pathPatternInterpreter.ExtractVersionTag(filePath);
-      if (!string.IsNullOrEmpty(versionTag))
+      var folder = Path.GetDirectoryName(filePath);
+      var name = Path.GetFileNameWithoutExtension(folder)!;
+      if (node.Ancestors<IFileNode>().Any(
+          x => x.Name == name && x.FilePath == node.FilePath))
       {
-        // Concatenando a tag na versão do produto na forma VERSAO-TAG
-        product.Version = $"{product.Version}-{versionTag}";
+        name = node.GetType().Name[..^4];
       }
+      node.Name = name;
+    }
+
+    if (node is VersionNode version)
+    {
+      if (string.IsNullOrEmpty(version.Version))
+      {
+        version.Version = "0.0.1";
+      }
+      version.Name = version.Version;
     }
 
     return node;
   }
 
   /// <summary>
-  /// Carrega os scripts do pacote.
+  /// Carrega o nodo do arquivo de configuração JSON.
   /// </summary>
   /// <param name="drive">
-  /// Drive a ser carregado.
+  /// O objeto IDrive que representa o Drive que contém os arquivos de
+  /// configuração.
   /// </param>
   /// <param name="parent">
-  /// Nodo pai dos nodos a serem carregados.
+  /// O nodo pai do nodo a ser carregado ou criado.
+  /// </param>
+  /// <param name="type">
+  /// O tipo do nodo a ser carregado ou criado.
+  /// </param>
+  /// <param name="filePath">
+  /// O caminho do arquivo do nodo.
   /// </param>
   /// <returns>
-  /// Lista de nodos carregados.
+  /// O nodo carregado ou criado.
   /// </returns>
-  private Task<ScriptNode> ReadScriptFromFileAsync(IDrive drive,
-      string filePath)
+  private async Task<IFileNode?> ReadConfigFileAsync(IDrive drive, INode parent,
+      Type type, string filePath)
   {
-    var (name, tag) = _pathPatternInterpreter.ExtractObjectNameAndTag(filePath);
-    var node = new ScriptNode
-    {
-      FilePath = filePath,
-      Name = name,
-      Tag = tag
-    };
-    return Task.FromResult(node);
+    // Carregando o arquivo JSON...
+    using var reader = await drive.OpenFileAsync(filePath);
+    var @object = await JsonSerializer.DeserializeAsync(reader, type,
+        JsonOptions.CamelCase);
+    var node = (IFileNode)@object!;
+    node.Parent = parent;
+    node.FilePath = Path.GetDirectoryName(filePath)!;
+    return node;
   }
 
+  /// <summary>
+  /// Carrega os nodos de script a partir da unidade de armazenamento
+  /// especificada.
+  /// </summary>
+  /// <param name="drive">A unidade de armazenamento a ser consultada.</param>
+  /// <param name="scriptFolder">A pasta onde os scripts se encontram.</param>
+  /// <returns>
+  /// Uma lista de ScriptNode representando os scripts encontrados na unidade de
+  /// armazenamento.
+  /// </returns>
+  private List<ScriptNode> LoadScriptNodes(IDrive drive, string scriptFolder,
+      PackageNode parentNode)
+  {
+    var scripts = new List<ScriptNode>();
+
+    var filePaths = drive.GetFiles(scriptFolder, "*.sql", TopDirectoryOnly);
+    foreach (var filePath in filePaths)
+    {
+      var (name, tag) = _pathPatternInterpreter.ExtractObjectNameAndTag(
+          filePath);
+
+      var script = new ScriptNode
+      {
+        FilePath = filePath,
+        Name = name,
+        Tag = tag
+      };
+
+      parentNode.Scripts.Add(script);
+
+      scripts.Add(script);
+    }
+
+    return scripts;
+  }
+
+  /// <summary>
+  /// Adicionando o nodo à lista de nodos do nodo pai.
+  /// </summary>
+  /// <param name="parentNode">Nodo pai.</param>
+  /// <param name="childNode">Nodo filho.</param>
+  /// <remarks>
+  /// A propriedade lista no nodo pai tem o nome do tipo do nodo filho
+  /// no plural.
+  /// Por exemplo, se o nodo filho for um "ProductNode", a propriedade
+  /// lista no nodo pai será "Products".
+  /// </remarks>
+  private void AddToParent(INode parentNode, IFileNode childNode)
+  {
+    var type = childNode.GetType();
+    var propertyName = $"{type.Name[..^4]}s";
+    var property = parentNode.GetType().GetProperty(propertyName)!;
+    var children = (IList)property.GetValue(parentNode)!;
+    children.Add(childNode);
+  }
 }

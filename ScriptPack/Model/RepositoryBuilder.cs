@@ -59,7 +59,7 @@ public class RepositoryBuilder
     {
       try
       {
-        var catalogs = await catalogLoader.ReadCatalogAsync(drive);
+        var catalogs = await catalogLoader.LoadCatalogsAsync(drive);
 
         if (_dependencyDetectorVisitor != null)
         {

@@ -3,13 +3,13 @@ using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 using ScriptPack.Model;
 
-namespace SPack.Commands;
+namespace SPack.Helpers;
 
 /// <summary>
 /// Utilitário para abertura de repositórios de catálogos de scripts para
 /// processamento.
 /// </summary>
-public class RepositoryOpener
+public class RepositoryCreator
 {
   /// <summary>
   /// Obtém ou define um valor booleano que indica se o repositório deve ser
@@ -18,11 +18,17 @@ public class RepositoryOpener
   public bool DetectDependencies { get; set; }
 
   /// <summary>
+  /// Obtém ou define um valor booleano que indica se o repositório deve ser
+  /// carregado com o detector de dependências circulares.
+  /// </summary>
+  public bool DetectCircularDependencies { get; set; }
+
+  /// <summary>
   /// Carrega o repositório com os catálogos lidos do caminho.
   /// </summary>
   /// <returns>Caminho da pasta ou do arquivo do catálogo.</returns>
   /// <returns>O repositório carregado.</returns>
-  public async Task<RepositoryNode> OpenRepositoryAsync(string? catalogPath)
+  public async Task<RepositoryNode> CreateRepositoryAsync(string? catalogPath)
   {
     var repositoryBuilder = CreateRepositoryBuilder(catalogPath);
     var repository = await repositoryBuilder.BuildRepositoryAsync();
@@ -34,10 +40,10 @@ public class RepositoryOpener
   /// <see cref="TreeNodeNavigator"/> para navegação.
   /// </summary>
   /// <returns>Caminho da pasta ou do arquivo do catálogo.</returns>
-  public async Task<TreeNodeNavigator> OpenRepositoryNavigatorAsync(
+  public async Task<TreeNodeNavigator> CreateRepositoryNavigatorAsync(
       string? catalogPath)
   {
-    var repository = await OpenRepositoryAsync(catalogPath);
+    var repository = await CreateRepositoryAsync(catalogPath);
 
     INode rootNode = repository.Descendants<CatalogNode>().Count() == 1
         ? repository.Descendants<CatalogNode>().First()
@@ -67,6 +73,10 @@ public class RepositoryOpener
     if (DetectDependencies)
     {
       repositoryBuilder.AddDependencyDetector();
+    }
+    if (DetectCircularDependencies)
+    {
+      repositoryBuilder.AddCircularDependencyDetector();
     }
 
     return repositoryBuilder;

@@ -14,8 +14,11 @@ async Task RunAsync(string[] args)
     list = new Option(DefaultValue: "**"),
     show = new Option(),
     migrate = new Switch(),
+    pipeline = new Switch(),
+    validate = new Switch(),
     encode = new Option(),
     catalog = new Option(Long: true, 'c'),
+    package = new OptionList(Long: true, 'p'),
     script = new OptionList(Long: true, 's'),
     database = new OptionList(Long: true, 'd'),
     verbose = new Switch(Long: true, 'v')
@@ -24,15 +27,7 @@ async Task RunAsync(string[] args)
   try
   {
     ParseArgs(args, options);
-  }
-  catch (Exception ex)
-  {
-    Console.Error.WriteLine(ex.Message);
-    return;
-  }
 
-  try
-  {
     var catalog = options.catalog.On ? options.catalog.Value : null;
 
     ICommand command = options switch
@@ -58,11 +53,28 @@ async Task RunAsync(string[] args)
             ConnectionMaps = options.database.Items
           },
 
+      { validate: { On: true } }
+          => new ValidateCommand
+          {
+            CatalogPath = catalog,
+            SearchPackageCriteria = options.package.Items,
+            SearchScriptCriteria = options.script.Items
+          },
+
+      { pipeline: { On: true } }
+          => new PipelineCommand
+          {
+            CatalogPath = catalog,
+            SearchPackageCriteria = options.package.Items,
+            SearchScriptCriteria = options.script.Items
+          },
+
       { migrate: { On: true } }
           => new MigrateCommand
           {
             CatalogPath = catalog,
-            ScriptFilters = options.script.Items,
+            SearchPackageCriteria = options.package.Items,
+            SearchScriptCriteria = options.script.Items,
             ConnectionMaps = options.database.Items
           },
 
@@ -78,15 +90,17 @@ async Task RunAsync(string[] args)
   }
   catch (Exception ex)
   {
+    Environment.ExitCode = 1;
     Console.Error.WriteLine(ex.Message);
     if (options.verbose.On)
     {
-      while (ex.InnerException != null)
+      Exception? cause = ex;
+      do
       {
         Console.Error.WriteLine("---");
-        Console.Error.WriteLine(ex.StackTrace);
-        ex = ex.InnerException;
-      }
+        Console.Error.WriteLine(cause.StackTrace);
+        cause = cause.InnerException;
+      } while (cause != null);
     }
   }
 }

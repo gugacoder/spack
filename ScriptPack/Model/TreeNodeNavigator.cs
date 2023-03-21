@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using DotNet.Globbing;
 using ScriptPack.Domain;
+using ScriptPack.Helpers;
 
 namespace ScriptPack.Model;
 
@@ -113,9 +114,10 @@ public class TreeNodeNavigator
   public string[] List(string searchPattern)
   {
     Glob glob = Glob.Parse(AppendPrefix(searchPattern));
-    var matchingPaths = RootNode
+    var paths = RootNode
         .DescendantsAndSelf()
-        .Select(node => node.Path)
+        .Select(node => node.Path);
+    var matchingPaths = paths
         .Where(glob.IsMatch)
         .Select(path => RemovePrefix(path))
         .ToArray();
@@ -204,9 +206,7 @@ public class TreeNodeNavigator
   /// <returns>A nova string de texto com a barra adicionada.</returns>
   private string AppendPrefix(string text)
   {
-    var prefix = RootNode.Path.EndsWith("/")
-        ? RootNode.Path
-        : $"{RootNode.Path}/";
+    var prefix = VirtualPath.GetParentPath(RootNode)[..^1];
     var prefixedText = text.StartsWith("/")
         ? $"{prefix}{text[1..]}"
         : $"{prefix}{text}";
@@ -221,9 +221,7 @@ public class TreeNodeNavigator
   /// <returns>A nova string de texto sem a barra no início.</returns>
   private string RemovePrefix(string prefixedText)
   {
-    var prefix = RootNode.Path.EndsWith("/")
-        ? RootNode.Path[0..^1]
-        : RootNode.Path;
+    var prefix = VirtualPath.GetParentPath(RootNode)[..^1];
     var text = prefixedText[(prefix.Length)..];
     return text;
   }

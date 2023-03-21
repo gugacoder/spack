@@ -12,6 +12,7 @@ public class ModuleNode : AbstractFileNode
   /// </summary>
   public ModuleNode()
   {
+    this.Modules = new();
     this.Packages = new();
   }
 
@@ -19,6 +20,16 @@ public class ModuleNode : AbstractFileNode
   /// Obtém ou define a precedência do módulo em relação aos demais.
   /// </summary>
   public int Precedence { get; set; }
+
+  /// <summary>
+  /// Obtém ou define os sub-módulos.
+  /// </summary>
+  [JsonIgnore]
+  public NodeList<ModuleNode> Modules
+  {
+    get => Get<NodeList<ModuleNode>>();
+    set => Set(value);
+  }
 
   /// <summary>
   /// Obtém ou define os pacotes do módulo.

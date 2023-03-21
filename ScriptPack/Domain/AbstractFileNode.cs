@@ -8,11 +8,6 @@ namespace ScriptPack.Domain;
 public abstract class AbstractFileNode : AbstractNode, IFileNode
 {
   /// <summary>
-  /// A descrição do nodo.
-  /// </summary>
-  public virtual string? Description { get; set; }
-
-  /// <summary>
   /// O caminho relativo do arquivo referente.
   /// </summary>
   [JsonIgnore]
