@@ -34,9 +34,9 @@ public class VersionComparer : IComparer<string?>
   /// </returns>
   public static int CompareVersions(string? x, string? y)
   {
-    if (x == null && y == null) return 0;
-    if (x == null) return -1;
-    if (y == null) return 1;
+    if (x is null && y is null) return 0;
+    if (x is null) return -1;
+    if (y is null) return 1;
 
     var version1 = ParseVersion(x);
     var version2 = ParseVersion(y);

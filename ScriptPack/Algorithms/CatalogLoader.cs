@@ -242,7 +242,7 @@ public class CatalogLoader
       ).FirstOrDefault();
 
       // Se não houver pasta pai em potencial, vá para a próxima iteração
-      if (potentialParentFolder == null)
+      if (potentialParentFolder is null)
       {
         continue;
       }
@@ -257,7 +257,7 @@ public class CatalogLoader
       ).FirstOrDefault();
 
       // Determine se a pasta alvo é aninhada ou não
-      var isNested = configParentFolder == null
+      var isNested = configParentFolder is null
           || configParentFolder.Length <= potentialParentFolder.Length;
 
       // Se a pasta alvo for aninhada, adicione-a à lista nestedScriptFolders
@@ -540,8 +540,13 @@ public class CatalogLoader
           continue;
         }
 
-        currentNode =
-            await LoadOrCreateNodeAsync(drive, currentNode, type, path);
+        currentNode = await LoadOrCreateNodeAsync(drive, currentNode, type,
+            path);
+
+        if (currentNode is CatalogNode catalogNode)
+        {
+          catalogNode.Drive = drive;
+        }
 
         // Adiciona o ndo ao cache.
         nodeCache[(type, path)] = currentNode;
@@ -554,7 +559,41 @@ public class CatalogLoader
       }
     }
 
-    return nodeCache.Values.OfType<CatalogNode>().ToList();
+    // Destacando os catálogos que contêm produtos.
+    var catalogs = nodeCache.Values
+        .OfType<CatalogNode>()
+        .Where(c => c.Products.Count > 0)
+        .ToList();
+
+    // Depois de carregado, a árvore de nodos pode conter catálogos que não
+    // correspondem a arquivos de configuração do tipo `catalog.json`.
+    // Isto que dizer que o repositório contém pacotes não estruturado
+    // corretamente a partir de um catálogo definido.
+    // 
+    // Para uma melhor organização da árvore vamos mesclar estes catálogos
+    // dentro de um apenas e utilizá-lo como raiz de todos os pacotes.
+
+    var unidentifiedCatalogs = catalogs
+        .Where(c => c.FilePath?.EndsWith("/catalog.json") != true)
+        .ToList();
+    if (unidentifiedCatalogs.Count > 0)
+    {
+      var products = unidentifiedCatalogs
+          .SelectMany(c => c.Products)
+          .ToList();
+
+      var unifiedCatalog = new CatalogNode
+      {
+        Name = drive.Name,
+        FilePath = "/catalog.json",
+        Drive = drive,
+        Products = new(products)
+      };
+
+      catalogs.RemoveAll(c => unidentifiedCatalogs.Contains(c));
+      catalogs.Add(unifiedCatalog);
+    }
+    return catalogs;
   }
 
   /// <summary>
@@ -586,28 +625,111 @@ public class CatalogLoader
       AddToParent(parent, node);
     }
 
+    if (node is VersionNode version && string.IsNullOrEmpty(version.Version))
+    {
+      version.Version = VersionNode.UnidentifiedVersion;
+    }
+
     if (string.IsNullOrEmpty(node.Name))
     {
-      var folder = Path.GetDirectoryName(filePath);
-      var name = Path.GetFileNameWithoutExtension(folder)!;
-      if (node.Ancestors<IFileNode>().Any(
-          x => x.Name == name && x.FilePath == node.FilePath))
+      node.Name = NameNode(node, filePath);
+    }
+
+    return node;
+  }
+
+  /// <summary>
+  /// Algoritmo de nomeação automática de nodos.
+  /// </summary>
+  /// <remarks>
+  /// Em geral, o nome do nodo é definido pelo próprio arquivo de configuração
+  /// usado no carregamento do nodo, como package.json, module.json, etc.
+  /// Quando o arquivo de configuração não existe, o nome do nodo é definido
+  /// de forma automática para obter a melhor definição possível.
+  /// </remarks>
+  /// <param name="node">
+  /// O nodo que está sendo nomeado.
+  /// </param>
+  /// <param name="filePath">
+  /// O caminho do arquivo de configuração do nodo.
+  /// </param>
+  /// <returns>
+  /// O nome do nodo.
+  /// </returns>
+  private string NameNode(IFileNode node, string filePath)
+  {
+    string? folder = null;
+    string? name = null;
+
+    // Pacotes recebem o nome "Package-INDICE", sendo INDICE o índice do
+    // pacote na lista de pacotes do catálogo.
+    if (node is PackageNode)
+    {
+      if (filePath.EndsWith("/package.json"))
       {
-        name = node.GetType().Name[..^4];
+        folder = Path.GetDirectoryName(filePath);
+        name = Path.GetFileNameWithoutExtension(folder)!;
+        return "Package";
       }
-      node.Name = name;
+
+      int index = node.Parent!.Children()
+          .Select((item, index) => new { item, index })
+          .FirstOrDefault(x => x.item == node)?.index ?? -1;
+
+      return (index == 0) ? "Package" : $"Package-{index}";
+    }
+
+    if (node is ModuleNode)
+    {
+      if (filePath.EndsWith("/module.json"))
+      {
+        folder = Path.GetDirectoryName(filePath);
+        name = Path.GetFileNameWithoutExtension(folder)!;
+        return name;
+      }
+
+      int index = node.Parent!.Children()
+          .Select((item, index) => new { item, index })
+          .FirstOrDefault(x => x.item == node)?.index ?? -1;
+
+      return (index == 0) ? "Module" : $"Module-{index}";
     }
 
     if (node is VersionNode version)
     {
-      if (string.IsNullOrEmpty(version.Version))
-      {
-        version.Version = "0.0.1";
-      }
-      version.Name = version.Version;
+      return !string.IsNullOrWhiteSpace(version.Version)
+          ? version.Version
+          : VersionNode.UnidentifiedVersion;
     }
 
-    return node;
+    if (node is ProductNode)
+    {
+      if (filePath.EndsWith("/product.json"))
+      {
+        folder = Path.GetDirectoryName(filePath);
+        name = Path.GetFileNameWithoutExtension(folder)!;
+        if (name != "trunk" && name != "branches" && name != "tags")
+        {
+          return name;
+        }
+      }
+
+      var catalog = node.Ancestors<CatalogNode>().FirstOrDefault();
+      if (!string.IsNullOrWhiteSpace(catalog?.Name))
+      {
+        return catalog.Name;
+      }
+
+      int index = node.Parent!.Children()
+          .Select((item, index) => new { item, index })
+          .FirstOrDefault(x => x.item == node)?.index ?? -1;
+
+      return (index == 0) ? "Product" : $"Product-{index}";
+    }
+
+    folder = Path.GetDirectoryName(filePath);
+    name = Path.GetFileNameWithoutExtension(folder)!;
+    return name;
   }
 
   /// <summary>

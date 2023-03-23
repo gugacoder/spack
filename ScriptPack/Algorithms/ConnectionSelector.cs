@@ -53,7 +53,7 @@ public class ConnectionSelector
     var selectedConnection = (
         from connection in connections
         orderby connection.Default descending
-        orderby connection.BoundTo == null descending
+        orderby connection.BoundTo is null descending
         select connection
     ).FirstOrDefault();
 

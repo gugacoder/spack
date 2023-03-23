@@ -12,6 +12,16 @@ AÇÕES
         Exibe o conteúdo de objetos do catálogo de scripts.
         Opções
             --catalog CATÁLOGO
+    init
+        Apenas inicializa as bases de dados com os objetos básicos do esquema
+        scriptpack.
+        Alguns dos objetos do esquema scriptpack inicializados na base são:
+            scriptpack.INT_ARG
+            scriptpack.STR_ARG
+            scriptpack.DATE_ARG
+        Opções
+            --catalog CATÁLOGO
+            --database STRING_DE_CONEXÃO
     migrate
         Executa os scripts de migração nas bases de dados.
         Opções
@@ -19,13 +29,13 @@ AÇÕES
             --package PACOTE
             --script PATH
             --database STRING_DE_CONEXÃO
-    validate
-        Checa por falhas nos catálogos de scripts.
+    pipeline
+        Exibe o plano de execução dos pipelines.
             --catalog CATÁLOGO
             --package PACOTE
             --script PATH
-    pipeline
-        Exibe o plano de execução dos pipelines.
+    validate
+        Checa por falhas nos catálogos de scripts.
             --catalog CATÁLOGO
             --package PACOTE
             --script PATH
@@ -61,10 +71,27 @@ OPÇÕES
             base de dados.
             Pode ocorrer várias vezes para selecionar vários scripts e pacotes.
             Se omitido o SPack executará todos os scripts do catálogo.
+    -a, --arg ARG
+            Define o valor de um argumento repassado para os scripts.
+            O argumento pode ser capturado pelos scripts pelo uso das funções do
+            esquema `scriptpack`.
+            Por exemplo:
+                spack migrate --arg "my_arg=123"
+                Este argumento poderia ser capturado em um scrpt da seguinte
+                forma:
+                    SELECT scriptpack.INT_ARG('my_arg',NULL);
     -d, --database STRING_DE_CONEXÃO
             Configura a base de dados que será migrada.
             Pode ocorrer várias vezes para configurar as várias bases de dados
             disponíveis no catálogo.
+    -i  --ignore-built-in
+            Ignora os scripts de built-in.
+            Os scripts de built-in são scripts que são executados antes de
+            qualquer outro script.
+            Estes scripts são executados para preparar a base de dados para a
+            execução dos scripts de migração.
+            Por exemplo, os scripts de built-in são responsáveis por criar
+            tabelas de controle de migração e de execução de scripts.
     -v, --verbose
             Mostra informações adicionais durante a execução.
     -h, --help

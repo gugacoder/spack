@@ -6,4 +6,11 @@
     <RootNamespace>ScriptPack</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource
+        Include="META\scripts\**\*.*"
+        LogicalName="/%(RecursiveDir)%(Filename)%(Extension)"
+        />
+  </ItemGroup>
+
 </Project>

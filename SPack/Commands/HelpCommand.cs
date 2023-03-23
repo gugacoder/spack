@@ -40,7 +40,7 @@ public class HelpCommand : ICommand
         .First(m => m.EndsWith("HELP.info"));
 
     using var stream = assembly.GetManifestResourceStream(manifest);
-    if (stream == null)
+    if (stream is null)
     {
       Console.Error.WriteLine(
           "FALHA! O arquivo de ajuda HELP.info não foi distribuído " +

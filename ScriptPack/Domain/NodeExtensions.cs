@@ -18,7 +18,7 @@ public static class NodeExtesions
   /// </returns>
   public static INode Root(this INode node)
   {
-    if (node.Parent == null) return node;
+    if (node.Parent is null) return node;
     return node.Parent.Root();
   }
 
@@ -51,7 +51,7 @@ public static class NodeExtesions
   /// </returns>
   public static IEnumerable<INode> Ancestors(this INode node)
   {
-    if (node.Parent == null) yield break;
+    if (node.Parent is null) yield break;
     yield return node.Parent;
     foreach (var ancestor in node.Parent.Ancestors())
     {
@@ -71,7 +71,7 @@ public static class NodeExtesions
   public static IEnumerable<INode> AncestorsAndSelf(this INode node)
   {
     yield return node;
-    if (node.Parent == null) yield break;
+    if (node.Parent is null) yield break;
     yield return node.Parent;
     foreach (var ancestor in node.Parent.Ancestors())
     {
@@ -94,7 +94,7 @@ public static class NodeExtesions
   public static IEnumerable<T> Ancestors<T>(this INode node)
     where T : INode
   {
-    if (node.Parent == null) yield break;
+    if (node.Parent is null) yield break;
     if (node.Parent is T t) yield return t;
     foreach (var ancestor in node.Parent.Ancestors<T>())
     {
@@ -120,7 +120,7 @@ public static class NodeExtesions
     where T : INode
   {
     if (node is T t1) yield return t1;
-    if (node.Parent == null) yield break;
+    if (node.Parent is null) yield break;
     if (node.Parent is T t2) yield return t2;
     foreach (var ancestor in node.Parent.Ancestors<T>())
     {

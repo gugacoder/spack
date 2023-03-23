@@ -45,7 +45,7 @@ public class ConnectionConfigurator
       var connectionString = tokens.Last().Trim();
 
       var connection = connections.FirstOrDefault(x => x.Name == connectionName);
-      if (connection == null)
+      if (connection is null)
       {
         Console.Error.WriteLine(
             $"[NOTA]A conexão '{connectionName}' não foi encontrada no " +

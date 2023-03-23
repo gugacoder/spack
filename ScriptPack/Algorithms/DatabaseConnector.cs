@@ -9,6 +9,7 @@ namespace ScriptPack.Algorithms;
 public class DatabaseConnector
 {
   private readonly ConnectionNode[] _availableConnections;
+  private readonly Dictionary<string, string> _connectionStrings;
 
   /// <summary>
   /// Construtor da classe DatabaseConnector.
@@ -16,9 +17,11 @@ public class DatabaseConnector
   /// <param name="availableConnections">
   /// Lista de ConnectionNode contendo informações de conexão com as bases de dados.
   /// </param>
-  public DatabaseConnector(ConnectionNode[] availableConnections)
+  public DatabaseConnector(ConnectionNode[] availableConnections,
+      Dictionary<string, string> connectionStrings)
   {
-    this._availableConnections = availableConnections;
+    _availableConnections = availableConnections;
+    _connectionStrings = connectionStrings;
   }
 
   /// <summary>
@@ -47,16 +50,28 @@ public class DatabaseConnector
   public async Task<string> CreateConnectionStringAsync(
       ConnectionNode connection)
   {
+    string connectionString;
+
+    // 
+    //  Usando uma string de conexão pré-definida.
     //
-    //  Usando a string de conexão da própria fábrica de conexão.
+    if (_connectionStrings.ContainsKey(connection.Name))
+    {
+      connectionString = _connectionStrings[connection.Name];
+      connectionString = AppendCommonProperties(connection, connectionString);
+      return connectionString;
+    }
+
+    //
+    //  Checando a string de conexão da própria fábrica de conexão.
     //
     var connectionStringFactory = connection.ConnectionStringFactory
         ?? throw new Exception(
               $"Fábrica de configuração de conexão não encontrada: " +
               $"{connection.Name}");
 
-    var connectionString = connectionStringFactory.ConnectionString;
-    if (connectionString == null)
+    connectionString = connectionStringFactory.ConnectionString;
+    if (connectionString is null)
     {
       //
       //  Usando a string de conexão de outra fábrica de conexão.
@@ -83,13 +98,12 @@ public class DatabaseConnector
           targetConnection, connectionStringFactory.Query);
     }
 
-    if (connectionString == null)
+    if (connectionString is null)
       throw new Exception(
           $"A string de conexão não foi encontrada: " +
           $"{connection.Name}");
 
     connectionString = AppendCommonProperties(connection, connectionString);
-
     return connectionString;
   }
 

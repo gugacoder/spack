@@ -52,12 +52,11 @@ public class PackageSearcher
 
     if (versionName == "latest")
     {
-      versionName = (
-          from p in products
-          from v in p.Descendants<VersionNode>()
-          orderby v.Version, new VersionComparer() descending
-          select v.Version
-      ).FirstOrDefault()
+      versionName = products
+          .SelectMany(x => x.Descendants<VersionNode>())
+          .Select(x => x.Version)
+          .OrderByDescending(x => x, new VersionComparer())
+          .FirstOrDefault()
           ?? throw new Exception(
               $"Nenhuma versão encontrada para o produto: {productName}");
     }

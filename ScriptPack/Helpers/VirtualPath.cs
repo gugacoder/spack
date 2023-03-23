@@ -50,7 +50,7 @@ public static class VirtualPath
   /// </returns>
   public static string GetParentPath(INode node)
   {
-    if (node.Parent == null) return "/";
+    if (node.Parent is null) return "/";
     if (node.Parent.Path == "/") return "/";
     if (node.Parent is RepositoryNode) return "/";
 

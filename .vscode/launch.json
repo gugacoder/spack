@@ -16,8 +16,9 @@
         // "-h"
         // "encode", "MyPassword",
         "list", "**",
-        // "list", "**/*[!.sql]",
-        // "show", "**/1.0.0/**/*[!.sql]",
+        // "pipeline",
+        // "list", "**",
+        // "show", "**/public.usuario.sql",
         // "migrate",
         // "validate",
         // "pipeline",

@@ -12,7 +12,7 @@ namespace ScriptPack.Model;
 /// </summary>
 public class DatabaseMigrator
 {
-  #region Events
+  #region Eventos
 
   /// <summary>
   /// Evento acionado quando o pipeline de migração é iniciado.
@@ -72,18 +72,49 @@ public class DatabaseMigrator
   #endregion
 
   /// <summary>
+  /// Cria uma nova instância de <cref name="DatabaseMigrator" />.
+  /// </summary>
+  public DatabaseMigrator()
+  {
+    Pipeline = null!;
+    Context = null!;
+  }
+
+  /// <summary>
+  /// Cria uma nova instância de <cref name="DatabaseMigrator" />.
+  /// </summary>
+  /// <param name="pipeline">Pipeline de migração a ser executado.</param>
+  /// <param name="context">Contexto da migração, com a definição de argumentos
+  /// e strings de conexão com a base de dados.</param>
+  public DatabaseMigrator(PipelineNode pipeline, Context context)
+  {
+    Pipeline = pipeline;
+    Context = context;
+  }
+
+  /// <summary>
+  /// Pipeline de migração a ser executado.
+  /// </summary>
+  public PipelineNode Pipeline { get; set; }
+
+  /// <summary>
+  /// Contexto da migração, com a definição de argumentos e strings de conexão
+  /// com a base de dados.
+  /// </summary>
+  public Context Context { get; set; }
+
+  /// <summary>
   /// Executa as migrações do banco de dados seguindo as etapas do pipeline de
   /// migração.
   /// </summary>
-  /// <param name="pipeline">Pipeline de migração a ser executado.</param>
-  public async Task MigrateAsync(PipelineNode pipeline)
+  public async Task MigrateAsync()
   {
     try
     {
-      OnPipelineStart?.Invoke(this, new(pipeline));
+      OnPipelineStart?.Invoke(this, new(Pipeline));
 
       var catalogs = (
-          from step in pipeline.Descendants<StepNode>()
+          from step in Pipeline.Descendants<StepNode>()
           from script in step.Scripts
           let catalog = script.Ancestor<CatalogNode>()
           where catalog != null
@@ -96,22 +127,22 @@ public class DatabaseMigrator
           select connection
       ).Distinct().ToArray();
 
-      foreach (var stage in pipeline.Stages)
+      foreach (var stage in Pipeline.Stages)
       {
         OnStageStart?.Invoke(this, new(stage));
 
-        await this.MigrateStageAsync(stage, connections);
+        await MigrateStageAsync(stage, connections);
 
         OnStageEnd?.Invoke(this, new(stage));
       }
     }
     catch (Exception ex)
     {
-      pipeline.Faults.Add(Fault.EmitException(ex));
+      Pipeline.Faults.Add(Fault.EmitException(ex));
     }
     finally
     {
-      OnPipelineEnd?.Invoke(this, new(pipeline));
+      OnPipelineEnd?.Invoke(this, new(Pipeline));
     }
   }
 
@@ -131,7 +162,8 @@ public class DatabaseMigrator
       //
       // Estabelecendo conexão...
       //
-      var connector = new DatabaseConnector(connections);
+      var connector = new DatabaseConnector(connections,
+          Context.ConnectionStrings);
       cn = await connector.CreateConnectionAsync(pipeline.Connection);
 
       ConnectListeners(cn);
@@ -192,7 +224,7 @@ public class DatabaseMigrator
   /// </param>
   private void ConnectListeners(DbConnection cn)
   {
-    if (OnConnectionMessage == null) return;
+    if (OnConnectionMessage is null) return;
 
     if (cn is SqlConnection sql)
     {

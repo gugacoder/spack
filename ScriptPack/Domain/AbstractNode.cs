@@ -140,7 +140,7 @@ public abstract class AbstractNode : INode
   /// <returns>O valor da propriedade.</returns>
   protected virtual T Get<T>([CallerMemberName] string? name = null)
   {
-    if (name == null) throw new ArgumentNullException(nameof(name));
+    if (name is null) throw new ArgumentNullException(nameof(name));
     children.TryGetValue(name, out var value);
     return (T)value!;
   }
@@ -154,13 +154,13 @@ public abstract class AbstractNode : INode
   protected virtual void Set<T>(T? value,
       [CallerMemberName] string? name = null)
   {
-    if (name == null) throw new ArgumentNullException(nameof(name));
+    if (name is null) throw new ArgumentNullException(nameof(name));
 
     // Libera o nodo definindo seu pai como nulo
     var current = Get<T>(name);
     current?.GetType().GetProperty("Parent")?.SetValue(current, null);
 
-    if (value == null)
+    if (value is null)
     {
       children.Remove(name);
       return;

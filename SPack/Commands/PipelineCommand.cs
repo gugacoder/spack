@@ -43,6 +43,17 @@ public class PipelineCommand : ICommand
   public List<string> SearchScriptCriteria { get; set; } = new();
 
   /// <summary>
+  /// Obtém ou define um valor booleano que indica se os scripts internos
+  /// devem ser incluídos na execução.
+  /// </summary>
+  /// <remarks>
+  /// Os scripts internos são scripts que acompanham o aplicativo e que
+  /// adicionam objetos de automação do ScriptPack para scripts de migração
+  /// de base de dados.
+  /// </remarks>
+  public bool BuiltInScripts { get; set; } = false;
+
+  /// <summary>
   /// Executa o comando de migração de dados.
   /// </summary>
   public async Task RunAsync()
@@ -69,7 +80,11 @@ public class PipelineCommand : ICommand
     //
     var pipelineBuilder = new PipelineBuilder();
     pipelineBuilder.AddScriptsFromNodes(selectedNodes);
-    var pipelines = pipelineBuilder.BuildPipelines();
+    if (BuiltInScripts)
+    {
+      pipelineBuilder.AddBuiltInScripts();
+    }
+    var pipelines = await pipelineBuilder.BuildPipelinesAsync();
 
     //
     // Detectando e reportando falhas.
@@ -166,7 +181,7 @@ public class PipelineCommand : ICommand
         return databaseName;
     }
 
-    if (factory?.Connection != null && factory.Query == null)
+    if (factory?.Connection != null && factory.Query is null)
     {
       var targetConnection = connectionPool.FirstOrDefault(
           c => c.Name == factory.Connection);

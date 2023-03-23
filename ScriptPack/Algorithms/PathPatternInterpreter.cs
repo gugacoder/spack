@@ -20,7 +20,7 @@ public class PathPatternInterpreter
   /// </returns>
   public string? ExtractVersionTag(string filePath)
   {
-    if (filePath == null) return null;
+    if (filePath is null) return null;
     var tokens = filePath.Split('/');
     foreach (var token in tokens.Reverse())
     {

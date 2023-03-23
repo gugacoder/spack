@@ -49,7 +49,18 @@ public class MigrateCommand : ICommand
   /// Exemplo:
   ///    myapp:Server=127.0.0.1;Database=MyDB;User Id=MyUser;Password=MyPass;
   /// </summary>
-  public List<string>? ConnectionMaps { get; set; } = new();
+  public List<string>? DatabaseMaps { get; set; } = new();
+
+  /// <summary>
+  /// Obtém ou define um valor booleano que indica se os scripts internos
+  /// devem ser incluídos na execução.
+  /// </summary>
+  /// <remarks>
+  /// Os scripts internos são scripts que acompanham o aplicativo e que
+  /// adicionam objetos de automação do ScriptPack para scripts de migração
+  /// de base de dados.
+  /// </remarks>
+  public bool BuiltInScripts { get; set; } = false;
 
   /// <summary>
   /// Executa o comando de migração de dados.
@@ -78,7 +89,11 @@ public class MigrateCommand : ICommand
     //
     var pipelineBuilder = new PipelineBuilder();
     pipelineBuilder.AddScriptsFromNodes(selectedNodes);
-    var pipelines = pipelineBuilder.BuildPipelines();
+    if (BuiltInScripts)
+    {
+      pipelineBuilder.AddBuiltInScripts();
+    }
+    var pipelines = await pipelineBuilder.BuildPipelinesAsync();
 
     //
     // Detectando e reportando falhas.
@@ -94,22 +109,24 @@ public class MigrateCommand : ICommand
     //
     // Configurando as conexões.
     //
-    if (ConnectionMaps?.Any() == true)
+    if (DatabaseMaps?.Any() == true)
     {
       var connectionConfigurator = new ConnectionConfigurator();
-      connectionConfigurator.ConfigureConnections(rootNode, ConnectionMaps);
+      connectionConfigurator.ConfigureConnections(rootNode, DatabaseMaps);
     }
 
     //
     // Realizando a migração de bases.
     //
-    var databaseMigrator = new DatabaseMigrator();
-
-    RegisterListeners(databaseMigrator);
-
     foreach (var pipeline in pipelines)
     {
-      await databaseMigrator.MigrateAsync(pipeline);
+      var databaseMigrator = new DatabaseMigrator
+      {
+        Pipeline = pipeline,
+        Context = new()
+      };
+      RegisterListeners(databaseMigrator);
+      await databaseMigrator.MigrateAsync();
     }
   }
 

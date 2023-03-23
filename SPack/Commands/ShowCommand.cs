@@ -37,7 +37,7 @@ public class ShowCommand : ICommand
   /// Exemplo:
   ///    myapp:Server=127.0.0.1;Database=MyDB;User Id=MyUser;Password=MyPass;
   /// </summary>
-  public List<string>? ConnectionMaps { get; set; } = new();
+  public List<string>? DatabaseMaps { get; set; } = new();
 
   /// <summary>
   /// Executa o comando para mostrar o conteúdo dos itens de um catálogo.

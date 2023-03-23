@@ -2,6 +2,8 @@ using System.Runtime.Intrinsics.X86;
 using System.IO.Pipes;
 using ScriptPack.Domain;
 using ScriptPack.Algorithms;
+using System.Reflection;
+using ScriptPack.FileSystem;
 
 namespace ScriptPack.Model;
 
@@ -10,15 +12,29 @@ namespace ScriptPack.Model;
 /// </summary>
 public class PipelineBuilder
 {
-  private readonly List<INode> nodes = new();
-  private readonly ScriptSorterVisitor scriptSorterVisitor = new();
-  private readonly ConnectionSelector connectionSelector = new();
+  private readonly List<INode> _nodes = new();
+  private readonly ScriptSorterVisitor _scriptSorterVisitor = new();
+  private readonly ConnectionSelector _connectionSelector = new();
 
   private readonly Dictionary<string, IScriptSorter> sorters = new()
   {
     { Orders.Auto, new ScriptSorterByDependency() },
     { Orders.Alpha, new ScriptSorterByName() }
   };
+  private bool _addBuiltInScripts;
+
+  /// <summary>
+  /// Adiciona os scripts internos fornecidos pelo aplicativo.
+  /// </summary>
+  /// <remarks>
+  /// Este método é usado para incluir scripts predefinidos que acompanham o
+  /// aplicativo. Os scripts acrescentam objetos de automação do ScriptPack
+  /// para scripts de migração de base de dados.
+  /// </remarks>
+  public void AddBuiltInScripts()
+  {
+    _addBuiltInScripts = true;
+  }
 
   /// <summary>
   /// Adiciona um único script à coleção de scripts.
@@ -26,7 +42,7 @@ public class PipelineBuilder
   /// <param name="script">O script a ser adicionado.</param>
   public void AddScript(ScriptNode script)
   {
-    this.nodes.Add(script);
+    this._nodes.Add(script);
   }
 
   /// <summary>
@@ -35,7 +51,7 @@ public class PipelineBuilder
   /// <param name="scripts">A coleção de scripts a ser adicionada.</param>
   public void AddScripts(IEnumerable<ScriptNode> scripts)
   {
-    this.nodes.AddRange(scripts);
+    this._nodes.AddRange(scripts);
   }
 
   /// <summary>
@@ -47,7 +63,7 @@ public class PipelineBuilder
   /// <param name="node">O nodo a ser adicionado.</param>
   public void AddScriptsFromNode(INode node)
   {
-    this.nodes.Add(node);
+    this._nodes.Add(node);
   }
 
   /// <summary>
@@ -59,7 +75,7 @@ public class PipelineBuilder
   /// <param name="nodes">Os nodos a serem adicionados.</param>
   public void AddScriptsFromNodes(IEnumerable<INode> nodes)
   {
-    this.nodes.AddRange(nodes);
+    this._nodes.AddRange(nodes);
   }
 
   /// <summary>
@@ -68,21 +84,33 @@ public class PipelineBuilder
   /// <returns>
   /// Lista de pipelines de execução.
   /// </returns>
-  public List<PipelineNode> BuildPipelines()
+  public async Task<List<PipelineNode>> BuildPipelinesAsync()
   {
+    List<INode> nodes = new(this._nodes);
+
+    if (_addBuiltInScripts)
+    {
+      var assembly = Assembly.GetExecutingAssembly();
+      var drive = new EmbeddedDrive(assembly);
+
+      var catalogLoader = new CatalogLoader();
+      var catalogs = await catalogLoader.LoadCatalogsAsync(drive);
+
+      nodes.AddRange(catalogs);
+    }
 
     // Agrupando por versão produto e base de dados.
     var selection = (
       // Selecionando nodos habiliados...
-      from node in this.nodes
+      from node in this._nodes
       where node.AncestorsAndSelf<IFileNode>().All(n => n.Enabled)
       // Selecionando scripts habilitados...
       from script in node.DescendantsAndSelf<ScriptNode>()
       where script.Enabled
       // Relacionando os pacotes...
       let package = script.Ancestor<PackageNode>()!
-      from connection in connectionSelector.SelectConnections(package)
-      // Relacionando as versões dos produtos...
+      from connection in _connectionSelector.SelectConnections(package)
+        // Relacionando as versões dos produtos...
       let version = script.Ancestor<VersionNode>()
       group script
         by (version, connection)
@@ -190,7 +218,7 @@ public class PipelineBuilder
     stage.Steps.AddRange(steps);
 
     // Sequenciando os scripts.
-    stage.Accept(scriptSorterVisitor);
+    stage.Accept(_scriptSorterVisitor);
 
     // Verificando se há falhas no estágio.
     var hasFault = stage.Descendants().SelectMany(node => node.Faults).Any();

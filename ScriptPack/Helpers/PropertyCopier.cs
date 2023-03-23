@@ -21,7 +21,7 @@ public static class PropertyCopier
       var targetProperty = targetObject.GetType().GetProperty(
           sourceProperty.Name);
 
-      if (targetProperty == null)
+      if (targetProperty is null)
         continue;
 
       object? value = sourceProperty.GetValue(sourceObject);
