@@ -59,6 +59,10 @@ public class PackageSelectionBuilder
     var encoding = options.Encode.On ? options.Encode.Value : null;
 
     // Tratando opções.
+    if (string.IsNullOrEmpty(catalogPath))
+    {
+      catalogPath = Environment.CurrentDirectory;
+    }
     if (!string.IsNullOrEmpty(mainCriteria))
     {
       searchCriteria.Add(mainCriteria);

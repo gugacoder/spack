@@ -25,6 +25,13 @@ public class CommandRunner
       // Interpretando os argumentos de linha de comando.
       options = commandLineParser.ParseArgs(args);
 
+      if (options.Help.On)
+      {
+        var help = new HelpCommand();
+        await help.RunAsync(options);
+        return;
+      }
+
       // Selecionando a ação a ser executada.
       var actions = (
           from option in options.AllOptions

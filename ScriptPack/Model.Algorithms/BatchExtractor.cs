@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 using ScriptPack.Domain;
 using ScriptPack.FileSystem;
@@ -54,7 +55,10 @@ internal class BatchExtractor
       // Se ainda não houver blocos na lista, cria um novo bloco.
       if (batches.Count == 0)
       {
-        batches.Add(new() { Index = 0, Buffer = new(line), Repetition = 0 });
+        var buffer = new StringBuilder();
+        buffer.AppendLine(line);
+        
+        batches.Add(new() { Index = 0, Buffer = buffer, Repetition = 0 });
         continue;
       }
 

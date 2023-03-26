@@ -108,7 +108,7 @@ public class MigrateCommand : ICommand
         Pipeline = pipeline,
         Context = new()
       };
-      RegisterListeners(databaseMigrator);
+      RegisterListeners(databaseMigrator, options.Verbose.On);
       await databaseMigrator.MigrateAsync();
     }
   }
@@ -119,43 +119,51 @@ public class MigrateCommand : ICommand
   /// <param name="databaseMigrator">
   /// Objeto DatabaseMigrator para registro dos eventos.
   /// </param>
-  private void RegisterListeners(DatabaseMigrator databaseMigrator)
+  /// <param name="verbose">
+  /// Indica se a execução deve ser verbosa ou não.
+  /// </param>
+  private void RegisterListeners(DatabaseMigrator databaseMigrator, bool verbose)
   {
-    databaseMigrator.OnPipelineStart += (sender, args) =>
-      Console.WriteLine($"+- PIPELINE {args.Phase.Name}");
-    databaseMigrator.OnStageStart += (sender, args) =>
-      Console.WriteLine($"   +- STAGE {args.Phase.Name}");
-    databaseMigrator.OnConnection += (sender, args) =>
-      Console.WriteLine($"      +- BASE {args.Connection.Database}");
-    databaseMigrator.OnConnectionMessage += (sender, args) =>
-      Console.WriteLine($"               {args.Message}");
-    databaseMigrator.OnStepStart += (sender, args) =>
-      Console.WriteLine($"      +- STEP {args.Phase.Name}");
-    databaseMigrator.OnMigrate += (sender, args) =>
-      Console.WriteLine($"         +- {args.Script.Name}");
-    databaseMigrator.OnSuccess += (sender, args) =>
-      Console.WriteLine("               [ OK ]");
-    databaseMigrator.OnError += (sender, args) =>
+    if (verbose)
     {
-      Console.WriteLine("               [ ERRO ]");
-      if (args.Script != null)
+      databaseMigrator.OnPipelineStart += (sender, args) =>
+          Console.WriteLine($"[PIPELINE] {args.Phase.Name}");
+      databaseMigrator.OnStageStart += (sender, args) =>
+          Console.WriteLine($"[STAGE] {args.Phase.Name}");
+      databaseMigrator.OnConnection += (sender, args) =>
+          Console.WriteLine($"[DATEBASE] {args.Connection.Database}");
+      databaseMigrator.OnConnectionMessage += (sender, args) =>
+          Console.WriteLine($"{args.Message}");
+      databaseMigrator.OnStepStart += (sender, args) =>
+          Console.WriteLine($"[STEP] {args.Phase.Name}");
+      databaseMigrator.OnError += (sender, args) =>
       {
-        Console.Error.WriteLine($"Causa: {args.Exception.Message}");
-        if (Verbose)
+        if (args.Script != null)
         {
-          Console.Error.WriteLine(args.Exception.StackTrace);
+          Console.Error.WriteLine($"[ERRO] {args.Exception.Message}");
+          if (Verbose)
+          {
+            Console.Error.WriteLine(args.Exception.StackTrace);
+          }
+          Console.Error.WriteLine();
         }
-        Console.Error.WriteLine();
-      }
-      else
-      {
-        Console.Error.WriteLine($"Causa: {args.Exception.Message}");
-        if (Verbose)
+        else
         {
-          Console.Error.WriteLine(args.Exception.StackTrace);
+          Console.Error.WriteLine($"[ERRO] {args.Exception.Message}");
+          if (Verbose)
+          {
+            Console.Error.WriteLine(args.Exception.StackTrace);
+          }
+          Console.Error.WriteLine();
         }
-        Console.Error.WriteLine();
-      }
-    };
+      };
+    }
+    
+    databaseMigrator.OnMigrate += (sender, args) =>
+        Console.WriteLine(args.Script.Path);
+
+    databaseMigrator.OnResultSet += (sender, args) =>
+        ResultSetPrinter.PrintResultSet(args.Result);
+
   }
 }

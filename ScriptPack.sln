@@ -7,8 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScriptPack", "ScriptPack\Sc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SPack", "SPack\SPack.csproj", "{A6CF65FF-5A2D-48D8-9D79-CC372D5ABBE7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScriptPack.Tests", "ScriptPack.Tests\ScriptPack.Tests.csproj", "{DD0ACCC4-DEF7-4366-9786-B87FD620197D}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,9 +24,5 @@ Global
 		{A6CF65FF-5A2D-48D8-9D79-CC372D5ABBE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A6CF65FF-5A2D-48D8-9D79-CC372D5ABBE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A6CF65FF-5A2D-48D8-9D79-CC372D5ABBE7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DD0ACCC4-DEF7-4366-9786-B87FD620197D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DD0ACCC4-DEF7-4366-9786-B87FD620197D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DD0ACCC4-DEF7-4366-9786-B87FD620197D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DD0ACCC4-DEF7-4366-9786-B87FD620197D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

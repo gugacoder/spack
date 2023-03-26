@@ -232,10 +232,10 @@ PARÂMETROS
         Por exemplo:
             // catalog.json
             {
-                "connections": [
+              "connections": [
                 { "name": "mydb1", "provider": "SqlServer" },
                 { "name": "mydb2", "provider": "PostgreSQL" }
-                ]
+              ]
             }
         Exemplos:
             Name=mydb1;Server=localhost;Database=MyDB1;User Id=sa;Password=123

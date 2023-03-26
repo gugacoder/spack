@@ -69,6 +69,8 @@ public class DatabaseMigrator
   /// </summary>
   public event EventHandler<ErrorEventArgs>? OnError;
 
+  public event EventHandler<ResultSetEventArgs>? OnResultSet;
+
   #endregion
 
   /// <summary>
@@ -280,7 +282,7 @@ public class DatabaseMigrator
           for (int i = 0; i < batches.Length; i++)
           {
             batch = batches[i];
-            await ExecuteBatchAsync(batch, dbConnection, dbTransaction);
+            await ExecuteBatchAsync(script, batch, dbConnection, dbTransaction);
           }
 
           OnSuccess?.Invoke(this, new(step, script, dbConnection));
@@ -303,11 +305,12 @@ public class DatabaseMigrator
   /// Executa um lote de comandos SQL no banco de dados.
   /// </summary>
   /// <param name="batch">O lote de comandos SQL a ser executado.</param>
+  /// <param name="script">O script que originou o lote.</param>
   /// <param name="dbConnection">A conexão com o banco de dados.</param>
   /// <param name="dbTransaction">
   /// A transação a ser utilizada na execução do lote. O valor padrão é null.
   /// </param>
-  private async Task ExecuteBatchAsync(Domain.Batch batch,
+  private async Task ExecuteBatchAsync(ScriptNode script, Domain.Batch batch,
     DbConnection dbConnection, DbTransaction? dbTransaction = null)
   {
     try
@@ -318,7 +321,15 @@ public class DatabaseMigrator
 
       // TODO: Falta aplicar padrões de template ao script.
 
-      await command.ExecuteNonQueryAsync();
+      if (OnResultSet is not null)
+      {
+        using var result = await command.ExecuteReaderAsync();
+        OnResultSet.Invoke(this, new(script, batch, result));
+      }
+      else
+      {
+        await command.ExecuteNonQueryAsync();
+      }
     }
     catch (Exception ex)
     {
@@ -480,5 +491,35 @@ public class DatabaseMigrator
     /// O bloco de script que causou o erro.
     /// </summary>
     public Batch? Batch { get; }
+  }
+
+  /// <summary>
+  /// Evento de captura do resultado de um bloco de script execuado durante a
+  /// migração de base.
+  /// </summary>
+  public class ResultSetEventArgs : EventArgs
+  {
+    public ResultSetEventArgs(ScriptNode script, Batch batch,
+        DbDataReader result)
+    {
+      this.Script = script;
+      this.Batch = batch;
+      this.Result = result;
+    }
+
+    /// <summary>
+    /// O script que originou o resultado.
+    /// </summary>
+    public ScriptNode Script { get; }
+
+    /// <summary>
+    /// O bloco de script que originou o resultado.
+    /// </summary>
+    public Batch Batch { get; }
+
+    /// <summary>
+    /// O resultado da execução do bloco de script.
+    /// </summary>
+    public DbDataReader Result { get; }
   }
 }

@@ -115,7 +115,7 @@ public class PipelineCommand : ICommand
       ConnectionNode[] connectionPool)
   {
     var factory = connection.ConnectionStringFactory;
-    if (factory?.ConnectionString != null)
+    if (factory?.ConnectionString.Contains("=") ?? false)
     {
       var databaseName = (
           from pair in factory.ConnectionString.Split(';')
