@@ -8,13 +8,13 @@ namespace ScriptPack.FileSystem;
 /// <summary>
 /// Drive para navegação em arquivos embarcados em um componente.
 /// </summary>
-public class EmbeddedDrive : IDrive
+public class ResourceDrive : IDrive
 {
   private readonly Assembly _assembly;
   private readonly string[] _files;
   private readonly string[] _folders;
 
-  public EmbeddedDrive(Assembly assembly)
+  public ResourceDrive(Assembly assembly)
   {
     _assembly = assembly;
     _files = _assembly
@@ -199,7 +199,7 @@ public class EmbeddedDrive : IDrive
     if (stream is null)
       throw new ArgumentException($"Arquivo não encontrado: {path}");
 
-    var reader = new StreamReader(stream, encoding ?? Encoding.UTF8);
+    var reader = new StreamReader(stream, encoding ?? Drive.DefaultEncoding);
     return Task.FromResult((TextReader)reader);
   }
 
@@ -221,7 +221,8 @@ public class EmbeddedDrive : IDrive
 
     using (stream)
     {
-      using var reader = new StreamReader(stream, encoding ?? Encoding.UTF8);
+      using var reader = new StreamReader(stream, encoding
+          ?? Drive.DefaultEncoding);
       var text = reader.ReadToEndAsync();
       return text;
     }

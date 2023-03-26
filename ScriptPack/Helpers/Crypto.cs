@@ -30,7 +30,8 @@ namespace ScriptPack.Helpers
       var encryptedBytes = new byte[plainBytes.Length];
       for (int i = 0; i < plainBytes.Length; i++)
       {
-        encryptedBytes[i] = (byte)(plainBytes[i] ^ keyBytes[i % keyBytes.Length]);
+        encryptedBytes[i] =
+            (byte)(plainBytes[i] ^ keyBytes[i % keyBytes.Length]);
       }
 
       return Prefix + Convert.ToBase64String(encryptedBytes);
@@ -56,7 +57,8 @@ namespace ScriptPack.Helpers
       var decryptedBytes = new byte[encryptedBytes.Length];
       for (int i = 0; i < encryptedBytes.Length; i++)
       {
-        decryptedBytes[i] = (byte)(encryptedBytes[i] ^ keyBytes[i % keyBytes.Length]);
+        decryptedBytes[i] =
+            (byte)(encryptedBytes[i] ^ keyBytes[i % keyBytes.Length]);
       }
 
       return Encoding.UTF8.GetString(decryptedBytes);

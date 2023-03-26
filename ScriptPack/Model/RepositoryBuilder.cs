@@ -1,6 +1,7 @@
-using ScriptPack.Algorithms;
+using ScriptPack.Model.Algorithms;
 using ScriptPack.Domain;
 using ScriptPack.FileSystem;
+using System.Text;
 
 namespace ScriptPack.Model;
 
@@ -9,18 +10,33 @@ namespace ScriptPack.Model;
 /// </summary>
 public class RepositoryBuilder
 {
-  private readonly List<IDrive> _drives = new();
+  private readonly Dictionary<IDrive, Encoding?> _drives = new();
 
   private DependencyDetectorVisitor? _dependencyDetectorVisitor;
   private CircularDependencyDetectorVisitor? _circularDependencyDetectorVisitor;
+  private Encoding? _defaultEncoding;
 
   /// <summary>
   /// Adiciona um drive ao carregador de catálogos.
   /// </summary>
   /// <param name="drive">O drive a ser adicionado.</param>
-  public void AddDrive(IDrive drive)
+  public void AddDrive(IDrive drive, Encoding? encoding = null)
   {
-    _drives.Add(drive);
+    _drives.Add(drive, encoding);
+  }
+
+  /// <summary>
+  /// Adiciona os scripts internos fornecidos pelo aplicativo.
+  /// </summary>
+  /// <remarks>
+  /// Este método é usado para incluir scripts predefinidos que acompanham o
+  /// aplicativo. Os scripts acrescentam objetos de automação do ScriptPack
+  /// para scripts de migração de base de dados.
+  /// </remarks>
+  public void AddBuiltInCatalog()
+  {
+    var drive = new ResourceDrive(typeof(INode).Assembly);
+    _drives.Add(drive, Drive.DefaultEncoding);
   }
 
   /// <summary>
@@ -45,6 +61,14 @@ public class RepositoryBuilder
   }
 
   /// <summary>
+  /// Adiciona um codificador de caracteres ao carregador de catálogos.
+  /// </summary>
+  public void AddDefaultEncoding(Encoding encoding)
+  {
+    _defaultEncoding = encoding;
+  }
+
+  /// <summary>
   /// Constrói o repositório de catálogos a partir dos drives adicionados.
   /// </summary>
   /// <returns>
@@ -55,11 +79,12 @@ public class RepositoryBuilder
     var repository = new RepositoryNode();
     var catalogLoader = new CatalogLoader();
 
-    foreach (var drive in _drives)
+    foreach (var (drive, driveEncoding) in _drives)
     {
+      var encoding = driveEncoding ?? _defaultEncoding ?? Drive.DefaultEncoding;
       try
       {
-        var catalogs = await catalogLoader.LoadCatalogsAsync(drive);
+        var catalogs = await catalogLoader.LoadCatalogsAsync(drive, encoding);
 
         if (_dependencyDetectorVisitor != null)
         {
@@ -78,6 +103,7 @@ public class RepositoryBuilder
             $"Falha ao carregar catálogo do drive {drive.Name}."));
       }
     }
+
     return repository;
   }
 }

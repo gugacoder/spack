@@ -3,7 +3,7 @@ using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 using ScriptPack.Helpers;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 //
 //  NT-01 (Nota Técnica #1)
@@ -44,7 +44,7 @@ namespace ScriptPack.Algorithms;
 /// Utilitário para carregamento de nodos de um catálogo a partir de arquivo
 /// lidos de um drive.
 /// </summary>
-public class PackageLoader : IPackageLoader
+internal class PackageLoader : IPackageLoader
 {
   private readonly PathPatternInterpreter _pathPatternInterpreter = new();
 

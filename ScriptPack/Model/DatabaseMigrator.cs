@@ -1,5 +1,5 @@
 using System.Data.Common;
-using ScriptPack.Algorithms;
+using ScriptPack.Model.Algorithms;
 using ScriptPack.Domain;
 using Microsoft.Data.SqlClient;
 using Npgsql;

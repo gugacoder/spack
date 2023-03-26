@@ -1,12 +1,12 @@
 using System.Data.Common;
 using Microsoft.Data.SqlClient;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Otimizações para conexões com o banco de dados.
 /// </summary>
-public class ConnectionOptimizer
+internal class ConnectionOptimizer
 {
   /// <summary>
   /// Otimiza a conexão com o banco de dados.

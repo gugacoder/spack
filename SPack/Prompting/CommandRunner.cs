@@ -1,4 +1,7 @@
+using Humanizer;
+using ScriptPack.FileSystem;
 using SPack.Commands;
+using SPack.Prompting.Domain;
 
 namespace SPack.Prompting;
 
@@ -18,76 +21,57 @@ public class CommandRunner
     try
     {
       var commandLineParser = new CommandLineParser();
+
+      // Interpretando os argumentos de linha de comando.
       options = commandLineParser.ParseArgs(args);
 
-      var catalog = options.Catalog.On ? options.Catalog.Value : null;
+      // Selecionando a ação a ser executada.
+      var actions = (
+          from option in options.AllOptions
+          where option.On && !option.Design.Long
+          select option
+      ).ToArray();
 
-      ICommand command = options switch
+      if (actions.Length == 0)
       {
-        { Help: { On: true } }
-            => new HelpCommand(),
-
-        { Encode: { On: true } }
-            => new EncodeCommand { Token = options.Encode.Value },
-
-        { List: { On: true } }
-            => new ListCommand
-            {
-              CatalogPath = catalog,
-              SearchPattern = options.List.Value
-            },
-
-        { Show: { On: true } }
-            => new ShowCommand
-            {
-              CatalogPath = catalog,
-              SearchPattern = options.Show.Value,
-              DatabaseMaps = options.Database.Items
-            },
-
-        { Validate: { On: true } }
-            => new ValidateCommand
-            {
-              CatalogPath = catalog,
-              SearchPackageCriteria = options.Package.Items,
-              SearchScriptCriteria = options.Script.Items
-            },
-
-        { Pipeline: { On: true } }
-            => new PipelineCommand
-            {
-              CatalogPath = catalog,
-              SearchPackageCriteria = options.Package.Items,
-              SearchScriptCriteria = options.Script.Items,
-              BuiltInScripts = !options.IgnoreBuiltIn.On
-            },
-
-        { Init: { On: true } }
-            => new MigrateCommand
-            {
-              CatalogPath = catalog,
-              DatabaseMaps = options.Database.Items,
-              BuiltInScripts = true
-            },
-
-        { Migrate: { On: true } }
-            => new MigrateCommand
-            {
-              CatalogPath = catalog,
-              SearchPackageCriteria = options.Package.Items,
-              SearchScriptCriteria = options.Script.Items,
-              DatabaseMaps = options.Database.Items,
-              BuiltInScripts = !options.IgnoreBuiltIn.On
-            },
-
-        _ => throw new ArgumentException(
+        throw new ArgumentException(
             "USO INCORRETO! Nenhuma ação indicada. " +
-            "Use --help para mais detalhes.")
-      };
+            "Use --help para mais detalhes.");
+      }
 
-      command.Verbose = options.Verbose.On;
+      if (actions.Length > 1)
+      {
+        var actionNames = string.Join(", ",
+            actions.Select(x => x.Name.ToLower()));
+        throw new ArgumentException(
+            "USO INCORRETO! Mais de uma ação indicada. " +
+            $"Ações: {actionNames}. " +
+            "Use --help para mais detalhes.");
+      }
 
-      await command.RunAsync();
+      var action = actions[0];
+
+      var commandTypeName = $"SPack.Commands.{action.Name}Command";
+      var commandType = Type.GetType(commandTypeName);
+
+      if (commandType is null)
+      {
+        var actionName = action.Name.Kebaberize();
+        throw new ArgumentException(
+            $"USO INCORRETO! Ação '{actionName}' não implementada. " +
+            "Use --help para mais detalhes.");
+      }
+
+      var command = Activator.CreateInstance(commandType) as ICommand;
+      if (command is null)
+      {
+        var actionName = action.Name.Kebaberize();
+        throw new ArgumentException(
+            $"USO INCORRETO! Ação '{actionName}' não implementada. " +
+            "Use --help para mais detalhes.");
+      }
+
+      await command.RunAsync(options);
 
     }
     catch (Exception ex)

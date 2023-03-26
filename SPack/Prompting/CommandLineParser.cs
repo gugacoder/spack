@@ -1,5 +1,7 @@
 using Humanizer;
+using ScriptPack.Helpers;
 using SPack.Commands;
+using SPack.Prompting.Domain;
 
 namespace SPack.Prompting;
 
@@ -30,18 +32,17 @@ public class CommandLineParser
       throw new ArgumentException("USO INCORRETO! Nenhum argumento informado.");
 
     var options = new CommandLineOptions();
-    var designs = ArgumentDesign.ExtractArgumentDesigns(options);
 
     for (var i = 0; i < args.Length; i++)
     {
       var arg = args[i];
       try
       {
-        var design = designs.SingleOrDefault(x => x.IsMatch(arg));
-        if (design is null)
-          throw new ArgumentException($"Argumento desconhecido: {arg}");
+        var option = options.AllOptions.SingleOrDefault(
+            o => o.Design.IsMatch(o, arg));
 
-        var option = design.Option;
+        if (option is null)
+          throw new ArgumentException($"Argumento desconhecido: {arg}");
 
         //
         // Ativando o uso da opção.
@@ -50,18 +51,21 @@ public class CommandLineParser
         option.On = true;
 
         if (option is Switch)
-          continue;
+          continue; // Nada mais a fazer com esta opção.
 
         //
         // A opção existe um valor. Verificando se o valor foi informado.
         //
-        var argValue = (args.Length > (i + 1) && !args[i + 1].StartsWith("-"))
-            ? args[++i]
-            : option.DefaultValue;
+        var optionValue =
+            (args.Length > (i + 1) && !args[i + 1].StartsWith("-"))
+                ? args[++i]
+                : option.Design.DefaultValue;
 
-        if (argValue is null)
+        if (optionValue is null)
+        {
           throw new IndexOutOfRangeException(
               $"USO INCORRETO! Valor do argumento não informado: {arg}");
+        }
 
         //
         // Realizando o parsing do argumento
@@ -69,13 +73,13 @@ public class CommandLineParser
 
         if (option is Option opt)
         {
-          opt.GetType().GetProperty("Value")?.SetValue(opt, argValue);
+          opt.Value = optionValue;
           continue;
         }
 
         if (option is OptionList optList)
         {
-          var items = argValue
+          var items = optionValue
               .Split(',')
               .Select(x => x.Trim())
               .Where(x => !string.IsNullOrWhiteSpace(x))

@@ -1,3 +1,5 @@
+using SPack.Prompting.Domain;
+
 namespace SPack.Prompting;
 
 /// <summary>
@@ -5,110 +7,148 @@ namespace SPack.Prompting;
 /// </summary>
 public class CommandLineOptions
 {
+  public CommandLineOptions()
+  {
+    this.AllOptions = InitializeAllOptions();
+  }
+
+  /// <summary>
+  /// Obtém a lista de todas as opções declaradas.
+  /// </summary>
+  public List<IArgument> AllOptions { get; }
+
   /// <summary>
   /// Representa a opção 'list' para listar o conteúdo do catálogo de scripts.
   /// </summary>
-  [ArgumentAttribute]
-  public Option List { get; set; } = new(DefaultValue: "**");
+  [Argument(DefaultValue = "")]
+  public Option List { get; } = new();
 
   /// <summary>
   /// Representa a opção 'show' para exibir o conteúdo dos objetos do catálogo
   /// de scripts.
   /// </summary>
-  [ArgumentAttribute]
-  public Option Show { get; set; } = new();
+  [Argument]
+  public Option Show { get; } = new();
 
   /// <summary>
   /// Representa a opção 'init' para inicializar as bases de dados com os
   /// objetos básicos do esquema ScriptPack.
   /// </summary>
-  [ArgumentAttribute]
-  public Option Init { get; set; } = new();
+  [Argument]
+  public Option Init { get; } = new();
 
   /// <summary>
   /// Representa a opção 'migrate' para executar os scripts de migração nas
   /// bases de dados.
   /// </summary>
-  [ArgumentAttribute]
-  public Switch Migrate { get; set; } = new();
+  [Argument]
+  public Switch Migrate { get; } = new();
 
   /// <summary>
   /// Representa a opção 'pipeline' para exibir o plano de execução dos
   /// pipelines.
   /// </summary>
-  [ArgumentAttribute]
-  public Switch Pipeline { get; set; } = new();
+  [Argument]
+  public Switch Pipeline { get; } = new();
 
   /// <summary>
   /// Representa a opção 'validate' para verificar se há falhas nos catálogos de
   /// scripts.
   /// </summary>
-  [ArgumentAttribute]
-  public Switch Validate { get; set; } = new();
+  [Argument]
+  public Switch Validate { get; } = new();
 
   /// <summary>
   /// Representa a opção 'encode' para codificar uma senha a ser usada em uma
   /// string de conexão.
   /// </summary>
-  [ArgumentAttribute]
-  public Option Encode { get; set; } = new();
+  [Argument]
+  public Option Encode { get; } = new();
 
   /// <summary>
   /// Representa a opção 'catalog' para definir o caminho da pasta ou arquivo do
   /// catálogo.
   /// </summary>
-  [ArgumentAttribute(@long: true, 'c')]
-  public Option Catalog { get; set; } = new(Long: true, 'c');
+  [Argument(@long: true, 'c', DefaultValue = ".")]
+  public Option Catalog { get; } = new();
 
   /// <summary>
   /// Representa a opção 'package' para selecionar pacotes de scripts de forma
   /// simplificada.
   /// </summary>
-  [ArgumentAttribute(@long: true, 'p')]
-  public OptionList Package { get; set; } = new(Long: true, 'p');
+  [Argument(@long: true, 'p')]
+  public OptionList Package { get; } = new();
 
   /// <summary>
   /// Representa a opção 'script' para selecionar os scripts ou pacotes de
   /// scripts que serão executados na base de dados.
   /// </summary>
-  [ArgumentAttribute(@long: true, 's')]
-  public OptionList Script { get; set; } = new(Long: true, 's');
+  [Argument(@long: true, 's')]
+  public OptionList Search { get; } = new();
 
   /// <summary>
   /// Representa a opção 'arg' para definir o valor de um argumento repassado
   /// para os scripts.
   /// </summary>
-  [ArgumentAttribute(@long: true, 'a')]
-  public OptionList Arg { get; set; } = new(Long: true, 'a');
+  [Argument(@long: true, 'a')]
+  public OptionList Arg { get; } = new();
 
   /// <summary>
   /// Representa a opção 'database' para configurar a base de dados que será
   /// migrada.
   /// </summary>
-  [ArgumentAttribute(@long: true, 'd')]
-  public OptionList Database { get; set; } = new(Long: true, 'd');
+  [Argument(@long: true, 'd')]
+  public OptionList Database { get; } = new();
 
   /// <summary>
-  /// Representa a opção 'ignore-built-in' para ignorar os pacotes de scripts
-  /// internos.
+  /// Representa a opção 'built-in' para acrescentar automaticamente o catálogo
+  /// interno do ScriptPack contendo a coleção de objetos de automação de
+  /// scripts.
   /// </summary>
-  /// <remarks>
-  /// Os scripts internos são ferramentas de automação da base de dados para
-  /// scripts de migração de base de dados.
-  /// </remarks>
-  [ArgumentAttribute(@long: true, 'i')]
-  public Switch IgnoreBuiltIn { get; set; } = new(Long: true, 'i');
+  [Argument(@long: true, 'b')]
+  public Switch BuiltIn { get; } = new();
+
+  /// <summary>
+  /// Representa a opção 'encoding' para definir o tipo de codificação dos
+  /// scripts.
+  /// </summary>
+  [Argument(@long: true, 'e')]
+  public Option Encoding { get; } = new();
 
   /// <summary>
   /// Representa a opção 'verbose' para mostrar informações adicionais durante a
   /// execução.
   /// </summary>
-  [ArgumentAttribute(@long: true, 'v')]
-  public Switch Verbose { get; set; } = new(Long: true, 'v');
+  [Argument(@long: true, 'v')]
+  public Switch Verbose { get; } = new();
 
   /// <summary>
   /// Representa a opção 'help' para exibir a ajuda do comando.
   /// </summary>
-  [ArgumentAttribute(@long: true, 'h')]
-  public Switch Help { get; set; } = new(Long: true, 'h');
-};
+  [Argument(@long: true, 'h')]
+  public Switch Help { get; } = new();
+
+  /// <summary>
+  /// Inicializa as opções e associa as opções às suas definições.
+  /// </summary>
+  /// <returns>
+  /// A lista de todas as opções declaradas.
+  /// </returns>
+  private List<IArgument> InitializeAllOptions()
+  {
+    var arguments = (
+        from p in GetType().GetProperties()
+        from design in p.GetCustomAttributes(true).OfType<ArgumentAttribute>()
+        let argument = p.GetValue(this) as IArgument
+        where argument is not null
+        select (argument, design)
+    ).ToArray();
+
+    foreach (var (argument, design) in arguments)
+    {
+      argument.Design = design;
+    }
+
+    return arguments.Select(e => e.argument).ToList();
+  }
+}

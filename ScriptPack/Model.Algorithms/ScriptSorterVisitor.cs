@@ -1,13 +1,13 @@
 using ScriptPack.Domain;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Classe que representa um visitante que implementa a interface IVisitor e que
 /// pode ser usado para classificar os scripts de um nodo de etapa usando um
 /// classificador de script.
 /// </summary>
-public class ScriptSorterVisitor : IVisitor
+internal class ScriptSorterVisitor : IVisitor
 {
   private readonly IScriptSorter _sorter;
 

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Serialization;
 using ScriptPack.FileSystem;
 using ScriptPack.Model;
@@ -20,6 +21,12 @@ public class CatalogNode : AbstractFileNode
   /// </summary>
   [JsonIgnore]
   public IDrive? Drive { get; set; }
+
+  /// <summary>
+  /// Codificação padrão dos scripts do catálogo.
+  /// </summary>
+  [JsonIgnore]
+  public Encoding? Encoding { get; set; }
 
   /// <summary>
   /// As bases de dados utilizadas pelo sistema.

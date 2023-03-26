@@ -5,7 +5,7 @@ using ScriptPack.Model;
 using ScriptPack.Helpers;
 using ScriptPack.FileSystem;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Ferramenta de extração das dependências de um script pela análise de seu
@@ -41,7 +41,7 @@ namespace ScriptPack.Algorithms;
 /// 
 /// O sinal de dois-pontos (:) é opcional.
 /// </remarks>
-public class DependencyDetector
+internal class DependencyDetector
 {
   /// <summary>
   /// Lê o script do fluxo de leitura e extrai do texto os objetos dos quais ele
@@ -64,8 +64,7 @@ public class DependencyDetector
 
     string? line;
 
-    using var scriptStream = await targetScript.OpenScriptFileAsync();
-    using var scriptReader = new StreamReader(scriptStream);
+    using var scriptReader = await targetScript.ReadScriptFileAsync();
 
     while ((line = await scriptReader.ReadLineAsync()) != null)
     {

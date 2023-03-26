@@ -32,7 +32,7 @@ public class ConnectionNode : AbstractNode
   /// utilizada.
   /// </para>
   /// </remarks>
-  public bool Default { get; set; } = false;
+  public bool IsDefault { get; set; } = false;
 
   /// <summary>
   /// Nome sugerido para bases de dados implantadas por esta conexão.

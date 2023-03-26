@@ -1,9 +1,9 @@
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Utilitários de interpretação de caminhos de arquivos.
 /// </summary>
-public class PathPatternInterpreter
+internal class PathPatternInterpreter
 {
   /// <summary>
   /// Identifica o sufixo de versão a partir do caminho de arquivo.

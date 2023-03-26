@@ -206,11 +206,12 @@ public class TreeNodeNavigator
   /// <returns>A nova string de texto com a barra adicionada.</returns>
   private string AppendPrefix(string text)
   {
-    var prefix = VirtualPath.GetParentPath(RootNode)[..^1];
-    var prefixedText = text.StartsWith("/")
-        ? $"{prefix}{text[1..]}"
-        : $"{prefix}{text}";
-    return prefixedText;
+    return text;
+    // var prefix = Path.GetDirectoryName(RootNode.Path)![..^1];
+    // var prefixedText = text.StartsWith("/")
+    //     ? $"{prefix}{text[1..]}"
+    //     : $"{prefix}{text}";
+    // return prefixedText;
   }
 
   /// <summary>
@@ -221,8 +222,9 @@ public class TreeNodeNavigator
   /// <returns>A nova string de texto sem a barra no início.</returns>
   private string RemovePrefix(string prefixedText)
   {
-    var prefix = VirtualPath.GetParentPath(RootNode)[..^1];
-    var text = prefixedText[(prefix.Length)..];
-    return text;
+    return prefixedText;
+    // var prefix = Path.GetDirectoryName(RootNode.Path)![..^1];
+    // var text = prefixedText[(prefix.Length)..];
+    // return text;
   }
 }

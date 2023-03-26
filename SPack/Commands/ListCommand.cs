@@ -1,9 +1,13 @@
 using System.Data;
-using ScriptPack.Algorithms;
+using System.Text;
+using ScriptPack.Model.Algorithms;
 using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 using ScriptPack.Model;
 using SPack.Helpers;
+using ScriptPack.Helpers;
+using SPack.Prompting;
+using SPack.Commands.Helpers;
 
 namespace SPack.Commands;
 
@@ -14,41 +18,21 @@ namespace SPack.Commands;
 public class ListCommand : ICommand
 {
   /// <summary>
-  /// Obtém ou define um valor booleano que indica se a execução deve ser
-  /// verbosa ou não.
-  /// </summary>
-  public bool Verbose { get; set; } = false;
-
-  /// <summary>
-  /// Obtém ou define o caminho da pasta ou do arquivo do catálogo.
-  /// </summary>
-  public string? CatalogPath { get; set; }
-
-  /// <summary>
-  /// Obtém ou define o padrão de pesquisa para listar os itens do catálogo.
-  /// </summary>
-  public string SearchPattern { get; set; } = "";
-
-  /// <summary>
   /// Executa o comando para listar os itens de um catálogo.
   /// </summary>
-  public async Task RunAsync()
+  public async Task RunAsync(CommandLineOptions options)
   {
-    //
-    // Abrindo o navegador de nodos.
-    //
-    var repositoryOpener = new RepositoryCreator();
-    var repositoryNavigator =
-        await repositoryOpener.CreateRepositoryNavigatorAsync(CatalogPath);
+    var nodeSelectorBuilder = new PackageSelectionBuilder();
+    nodeSelectorBuilder.AddOptions(options);
 
-    //
-    // Navegando e imprimindo o resultado da pesquisa.
-    //
-    var items = repositoryNavigator.List(this.SearchPattern);
-    foreach (var item in items.OrderBy(x => x))
+    var nodes = await nodeSelectorBuilder.BuildPackageSelectionAsync();
+    var paths = nodes.Select(x => x.Path).ToList();
+
+    // Imprimindo os itens dos catálogos.
+    foreach (var node in paths.OrderBy(x => x, new PathComparer()))
     {
-      await Console.Out.WriteLineAsync(item);
+      await Console.Out.WriteLineAsync(node);
     }
-    await Console.Out.WriteLineAsync($"Total: {items.Length}");
+    await Console.Out.WriteLineAsync($"Total: {paths.Count}");
   }
 }

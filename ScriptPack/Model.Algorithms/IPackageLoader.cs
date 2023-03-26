@@ -1,7 +1,7 @@
 using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Utilitário para carregamento de nodos de um catálogo a partir de um Drive.

@@ -1,12 +1,12 @@
 using ScriptPack.Domain;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Implementação da interface IVisitor para detectar dependências circulares em
 /// um ScriptNode.
 /// </summary>
-public class CircularDependencyDetectorVisitor : IVisitor
+internal class CircularDependencyDetectorVisitor : IVisitor
 {
   private readonly CircularDependencyDetector _detector = new();
 

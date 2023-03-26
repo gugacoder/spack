@@ -1,11 +1,11 @@
 using ScriptPack.Domain;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Classe responsável por detectar dependências circulares entre scripts.
 /// </summary>
-public class CircularDependencyDetector
+internal class CircularDependencyDetector
 {
   /// <summary>
   /// Função que determina se um script está dentro do escopo de análise.

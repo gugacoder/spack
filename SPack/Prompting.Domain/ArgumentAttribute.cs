@@ -1,4 +1,6 @@
-namespace SPack.Prompting;
+using Humanizer;
+
+namespace SPack.Prompting.Domain;
 
 /// <summary>
 /// Representa um atributo usado para definir opções de linha de comando
@@ -8,7 +10,7 @@ namespace SPack.Prompting;
 /// Use este atributo em propriedades para especificar como elas devem ser
 /// mapeadas para opções de linha de comando.
 /// </remarks>
-[AttributeUsage(AttributeTargets.Property)]
+[AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
 public class ArgumentAttribute : Attribute
 {
   /// <summary>
@@ -59,4 +61,38 @@ public class ArgumentAttribute : Attribute
   /// O caractere representando a opção curta ou null se não houver opção curta.
   /// </value>
   public char? Short { get; set; }
+
+  /// <summary>
+  /// Valor padrão do argumento.
+  /// </summary>
+  public string? DefaultValue { get; set; }
+
+  /// <summary>
+  /// Verifica se a opção fornecida corresponde à definição.
+  /// </summary>
+  /// <param name="targetOption">
+  /// A opção que está sendo verificada.
+  /// </param>
+  /// <param name="valueToCheck">
+  /// O valor obtido da linha de comando que está sendo verificado conta a
+  /// definição da opção.
+  /// </param>
+  /// <returns>
+  /// Retorna verdadeiro se a opção fornecida corresponder à definição, caso
+  /// contrário, retorna falso.
+  /// </returns>
+  public bool IsMatch(IArgument targetOption, string valueToCheck)
+  {
+    if (valueToCheck.StartsWith("--"))
+    {
+      return valueToCheck[2..] == targetOption.Name.Kebaberize();
+    }
+
+    if (valueToCheck.StartsWith("-"))
+    {
+      return valueToCheck[1..] == Short?.ToString();
+    }
+
+    return valueToCheck == targetOption.Name.Kebaberize();
+  }
 }

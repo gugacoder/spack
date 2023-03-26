@@ -1,12 +1,12 @@
 using System.Data.Common;
 using ScriptPack.Domain;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Classe responsável por criar strings de conexão e conexões com bases de dados.
 /// </summary>
-public class DatabaseConnector
+internal class DatabaseConnector
 {
   private readonly ConnectionNode[] _availableConnections;
   private readonly Dictionary<string, string> _connectionStrings;

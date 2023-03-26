@@ -8,10 +8,16 @@ AÇÕES
         Lista o conteúdo do catálogo de scripts.
         Opções
             --catalog CATÁLOGO
+            --package PACOTE
+            --search PATH
+            --built-in
     show PATH
         Exibe o conteúdo de objetos do catálogo de scripts.
         Opções
             --catalog CATÁLOGO
+            --package PACOTE
+            --search PATH
+            --built-in
     init
         Apenas inicializa as bases de dados com os objetos básicos do esquema
         scriptpack.
@@ -20,25 +26,29 @@ AÇÕES
             scriptpack.STR_ARG
             scriptpack.DATE_ARG
         Opções
-            --catalog CATÁLOGO
             --database STRING_DE_CONEXÃO
     migrate
         Executa os scripts de migração nas bases de dados.
         Opções
             --catalog CATÁLOGO
             --package PACOTE
-            --script PATH
+            --search PATH
+            --built-in
+            --arg ARG
             --database STRING_DE_CONEXÃO
     pipeline
         Exibe o plano de execução dos pipelines.
+        Opções
             --catalog CATÁLOGO
             --package PACOTE
-            --script PATH
+            --search PATH
+            --built-in
     validate
         Checa por falhas nos catálogos de scripts.
+        Opções
             --catalog CATÁLOGO
             --package PACOTE
-            --script PATH
+            --search PATH
     encode SENHA
         Codifica uma senha para ser usada em uma string de conexão.
 
@@ -53,7 +63,15 @@ OPÇÕES
             Caso sejam encontrados pacotes duplicados em diferentes catálogos
             uma falha será gerada.
             O PACOTE tem a forma:
-                <PRODUTO>/<VERSÃO>/<MÓDULO>/<PACOTE>
+                <PRODUTO>/<VERSÃO>[/<MÓDULO>[/<PACOTE>]]
+            Onde:
+               PRODUTO: Nome do produto.
+               VERSÃO:  Versão do produto. Pode ser uma versão específica ou a
+                        palavra-chave "latest", para selecionar a mais recente.
+               MÓDULO:  Nome do módulo. Pode ser omitido, para selecionar todos
+                        os módulos da versão do produto.
+               PACOTE:  Nome do pacote. Pode ser omitido, para selecionar todos
+                        os pacotes do módulo ou do produto.
             Exemplos:
                 --package MyApp
                     Seleciona a versão mais recente de MyApp.
@@ -66,7 +84,7 @@ OPÇÕES
                 --package MyApp/latest/Suprimentos/Cadastros
                     Seleciona o pacote Cadastros do módulo Suprimentos da versão
                     mais recente de MyApp.
-    -s, --script PATH
+    -s, --search PATH
             Seleciona os scripts ou pacotes de scripts que serão executados na
             base de dados.
             Pode ocorrer várias vezes para selecionar vários scripts e pacotes.
@@ -84,14 +102,14 @@ OPÇÕES
             Configura a base de dados que será migrada.
             Pode ocorrer várias vezes para configurar as várias bases de dados
             disponíveis no catálogo.
-    -i  --ignore-built-in
-            Ignora os scripts de built-in.
-            Os scripts de built-in são scripts que são executados antes de
-            qualquer outro script.
-            Estes scripts são executados para preparar a base de dados para a
-            execução dos scripts de migração.
-            Por exemplo, os scripts de built-in são responsáveis por criar
-            tabelas de controle de migração e de execução de scripts.
+    -b  --built-in
+            Acrescenta os scripts embutidos no catálogo.
+            Por padrão os scripts embutidos não são acrescentados.
+            Os scripts embutidos contêm os objetos de automação de scripts do
+            esquema `scriptpack`.
+    -e  --encoding ENCODING
+            Define o encoding dos arquivos de script.
+            O valor padrão é `ISO-8859-1`.
     -v, --verbose
             Mostra informações adicionais durante a execução.
     -h, --help
@@ -186,30 +204,42 @@ PARÂMETROS
         O SPack suporta a configuração de múltiplas bases de dados para
         migração de múltiplas bases de dados em uma única execução.
         Cada string de conexão definida para uma base de dados tem a forma:
-            <NOME_DA_CONEXÃO>:<STRING_DE_CONEXÃO>
+            Name=<NOME_DA_CONEXÃO>;Provider=<PROVEDOR>;<STRING_DE_CONEXÃO>
         Onde:
             <NOME_DA_CONEXÃO>
-                É o nome da configuração de conexão para a base de dados.
-                As configurações de conexão são definidas no arquivo de
-                configuração do catálogo (catalog.json), na coleção de conexões
-                da sua propriedade `connections`.
-                Por exemplo:
-                    // catalog.json
-                    {
-                      "connections": [
-                        { "name": "mydb1", "provider": "SqlServer" },
-                        { "name": "mydb2", "provider": "PostgreSQL" }
-                      ]
-                    }
+                Nome da conexão.
+                Se omitido, o nome da conexão será "Default".
+                Se houver uma conexão com o mesmo nome definida no catálogo esta
+                definição a sobrescreverá. Portanto, é recomendado omitir o
+                parâmetro `Provider` caso a conexão esteja definida no catálogo.
+            <PROVEDOR>
+                Nome do provedor de banco de dados.
+                Se omitido o provedor será lido da conexão definida no catálogo.
+                Se não houver uma conexão definida no catálogo, o provedor será
+                "SQLServer".
+                Nomes suportados pelo ScriptPack:
+                    SQLServer
+                    PostgreSQL
             <STRING_DE_CONEXÃO>
                 É a string de conexão para a base de dados.
                 A string de conexão é composta por uma lista de pares de chave e
                 valor separados por ponto-e-vírgula (;).
                 Exemplo:
                     "Server=localhost;Database=MyDB;User Id=sa;Password=123"
+        As conexões nomeadas podem ser pré-definidas no catálogo no arquivo de
+        configuração do catálogo (catalog.json), na coleção de conexões da sua
+        propriedade `connections`.
+        Por exemplo:
+            // catalog.json
+            {
+                "connections": [
+                { "name": "mydb1", "provider": "SqlServer" },
+                { "name": "mydb2", "provider": "PostgreSQL" }
+                ]
+            }
         Exemplos:
-            mydb1:Server=localhost;Database=MyDB1;User Id=sa;Password=123
-            mydb2:Server=localhost;Database=MyDB2;User Id=postgres;Password=123
+            Name=mydb1;Server=localhost;Database=MyDB1;User Id=sa;Password=123
+            Name=mydb2;Provider=PostgreSQL;Server=localhost;Database=MyDB2;...
     
 EXEMPLOS
 

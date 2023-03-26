@@ -2,12 +2,12 @@ using System.Text.RegularExpressions;
 using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Representa um objeto usado para extrair blocos de um script SQL.
 /// </summary>
-public class BatchExtractor
+internal class BatchExtractor
 {
   /// <summary>
   /// Regex para identificar o comando "GO" seguido de um número opcional.
@@ -30,8 +30,7 @@ public class BatchExtractor
 
     string? line;
 
-    using var scriptStream = await script.OpenScriptFileAsync();
-    using var scriptReader = new StreamReader(scriptStream);
+    using var scriptReader = await script.ReadScriptFileAsync();
 
     while ((line = await scriptReader.ReadLineAsync()) != null)
     {

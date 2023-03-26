@@ -251,7 +251,8 @@ public class ZipDrive : IDrive
   /// <summary>
   /// Lê um arquivo do arquivo ZIP.
   /// </summary>
-  public async Task<TextReader> ReadFileAsync(string path, Encoding? encoding = null)
+  public async Task<TextReader> ReadFileAsync(string path,
+      Encoding? encoding = null)
   {
     path = GetPath(path);
 
@@ -260,7 +261,7 @@ public class ZipDrive : IDrive
     var entry = archive.GetEntry(path);
 
     var stream = await OpenFileAsync(path);
-    var reader = new StreamReader(stream, encoding ?? Encoding.UTF8);
+    var reader = new StreamReader(stream, encoding ?? Drive.DefaultEncoding);
 
     return reader;
   }
@@ -268,7 +269,8 @@ public class ZipDrive : IDrive
   /// <summary>
   /// Lê todo o conteúdo de um arquivo do arquivo ZIP de forma assíncrona.
   /// </summary>
-  public async Task<string> ReadAllTextAsync(string path, Encoding? encoding = null)
+  public async Task<string> ReadAllTextAsync(string path,
+      Encoding? encoding = null)
   {
     path = GetPath(path);
     using var reader = await ReadFileAsync(path, encoding);
@@ -303,7 +305,8 @@ public class ZipDrive : IDrive
         ZipArchiveMode.Update);
     var entry = archive.CreateEntry(path);
     using var entryStream = entry.Open();
-    using var writer = new StreamWriter(entryStream, encoding ?? Encoding.UTF8);
+    using var writer = new StreamWriter(entryStream,
+        encoding ?? Drive.DefaultEncoding);
 
     string? line;
     while ((line = await reader.ReadLineAsync()) != null)
@@ -324,7 +327,8 @@ public class ZipDrive : IDrive
         ZipArchiveMode.Update);
     var entry = archive.CreateEntry(path);
     using var entryStream = entry.Open();
-    using var writer = new StreamWriter(entryStream, encoding ?? Encoding.UTF8);
+    using var writer = new StreamWriter(entryStream,
+        encoding ?? Drive.DefaultEncoding);
     return writer.WriteAsync(text);
   }
 }

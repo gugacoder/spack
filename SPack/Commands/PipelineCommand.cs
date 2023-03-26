@@ -1,9 +1,12 @@
-using ScriptPack.Algorithms;
+using System.Text;
+using ScriptPack.Model.Algorithms;
 using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 using ScriptPack.Helpers;
 using ScriptPack.Model;
 using SPack.Helpers;
+using SPack.Prompting;
+using SPack.Commands.Helpers;
 
 namespace SPack.Commands;
 
@@ -13,82 +16,29 @@ namespace SPack.Commands;
 public class PipelineCommand : ICommand
 {
   /// <summary>
-  /// Obtém ou define um valor booleano que indica se a execução deve ser
-  /// verbosa ou não.
-  /// </summary>
-  public bool Verbose { get; set; } = false;
-
-  /// <summary>
-  /// Obtém ou define o caminho da pasta ou arquivo do catálogo.
-  /// </summary>
-  public string? CatalogPath { get; set; }
-
-  /// <summary>
-  /// Obtém ou define os pacotes a serem carregados.
-  /// Cada pacote tem a forma:
-  ///   PRODUTO[/VERSÃO[/MÓDULO[/PACOTE]]]
-  /// Exemplo:
-  ///   MyProduct/1.0.0/MyModule/MyPackage
-  /// </summary>
-  public List<string> SearchPackageCriteria { get; set; } = new();
-
-  /// <summary>
-  /// Obtém ou define os filtros de script a serem aplicados.
-  /// Um filtro é um padrão de pesquisa de pastas e arquivos virtuais na
-  /// árvode de nodos do catálogo.
-  /// 
-  /// Por exemplo, para selecionar todos os scripts da versão 1.0.0 disponível
-  /// no catálogo o filtro poderia ser: **/1.0.0.
-  /// </summary>
-  public List<string> SearchScriptCriteria { get; set; } = new();
-
-  /// <summary>
-  /// Obtém ou define um valor booleano que indica se os scripts internos
-  /// devem ser incluídos na execução.
-  /// </summary>
-  /// <remarks>
-  /// Os scripts internos são scripts que acompanham o aplicativo e que
-  /// adicionam objetos de automação do ScriptPack para scripts de migração
-  /// de base de dados.
-  /// </remarks>
-  public bool BuiltInScripts { get; set; } = false;
-
-  /// <summary>
   /// Executa o comando de migração de dados.
   /// </summary>
-  public async Task RunAsync()
+  public async Task RunAsync(CommandLineOptions options)
   {
-    //
-    // Abrindo o catálogo.
-    //
-    var repositoryOpener = new RepositoryCreator { DetectDependencies = true };
-    var repositoryNavigator =
-        await repositoryOpener.CreateRepositoryNavigatorAsync(CatalogPath);
+    // Selecionando os scripts.
+    var nodeSelectorBuilder = new PackageSelectionBuilder();
+    nodeSelectorBuilder.AddOptions(options);
+    nodeSelectorBuilder.AddValidators();
+    var nodes = await nodeSelectorBuilder.BuildPackageSelectionAsync();
 
-    var rootNode = repositoryNavigator.RootNode;
+    // Selecionando as conexões.
+    var connectionSelectorBuilder = new ConnectionSelectionBuilder();
+    connectionSelectorBuilder.AddOptions(options);
+    nodes.ForEach(connectionSelectorBuilder.AddConnectionsFromNode);
+    var connections = connectionSelectorBuilder.BuildConnectionSelection();
 
-    //
-    // Selecionando nodos.
-    //
-    var nodeSelector = new NodeSelector();
-    nodeSelector.SearchPackageCriteria = SearchPackageCriteria;
-    nodeSelector.SearchScriptCriteria = SearchScriptCriteria;
-    var selectedNodes = nodeSelector.SelectNodes(rootNode);
-
-    //
     // Montando pipelines.
-    //
     var pipelineBuilder = new PipelineBuilder();
-    pipelineBuilder.AddScriptsFromNodes(selectedNodes);
-    if (BuiltInScripts)
-    {
-      pipelineBuilder.AddBuiltInScripts();
-    }
-    var pipelines = await pipelineBuilder.BuildPipelinesAsync();
+    nodes.ForEach(pipelineBuilder.AddScriptsFromNode);
+    connections.ForEach(pipelineBuilder.AddConnection);
+    var pipelines = pipelineBuilder.BuildPipelines();
 
-    //
     // Detectando e reportando falhas.
-    //
     var faultReporter = new FaultReporter();
     var faultReport = faultReporter.CreateFaultReport(pipelines);
     if (faultReport.Length > 0)
@@ -97,12 +47,7 @@ public class PipelineCommand : ICommand
       return;
     }
 
-    //
-    // Realizando a impressão do plano de execução.
-    //
-    var connectionPool = rootNode.Descendants<ConnectionNode>().ToArray();
-
-    ReportPipelineExecutionPlan(pipelines, connectionPool);
+    ReportPipelineExecutionPlan(pipelines);
   }
 
   /// <summary>
@@ -111,11 +56,7 @@ public class PipelineCommand : ICommand
   /// <param name="pipelines">
   /// Os pipelines a serem impressos.
   /// </param>
-  /// <param name="connectionPool">
-  /// A lista de conexões disponíveis.
-  /// </param>
-  private void ReportPipelineExecutionPlan(List<PipelineNode> pipelines,
-      ConnectionNode[] connectionPool)
+  private void ReportPipelineExecutionPlan(List<PipelineNode> pipelines)
   {
     if (!pipelines.Any())
     {
@@ -123,15 +64,23 @@ public class PipelineCommand : ICommand
       return;
     }
 
-    foreach (var pipeline in pipelines.Concat(pipelines))
+    // Realizando a impressão do plano de execução.
+    var connectionPool = (
+        from node in pipelines
+        from catalog in node.Ancestors<CatalogNode>()
+        from connection in catalog.Connections
+        select connection
+    ).Distinct().ToArray();
+
+    foreach (var pipeline in pipelines)
     {
-      var database = InferDatabaseIfPossible(pipeline.Connection,
-          connectionPool);
+      var database = DetectDatabase(pipeline.Connection, connectionPool);
 
       Console.WriteLine($"+- PIPELINE {pipeline.Name}");
       foreach (var stage in pipeline.Stages)
       {
         Console.WriteLine($"   +- STAGE {stage.Name}");
+        Console.WriteLine($"      +- DATABASE {database}");
         foreach (var step in stage.Steps)
         {
           Console.WriteLine($"      +- STEP {step.Name}");
@@ -162,7 +111,7 @@ public class PipelineCommand : ICommand
   /// <returns>
   /// O nome da base de dados inferida da conexão.
   /// </returns>
-  private string InferDatabaseIfPossible(ConnectionNode connection,
+  private string DetectDatabase(ConnectionNode connection,
       ConnectionNode[] connectionPool)
   {
     var factory = connection.ConnectionStringFactory;
@@ -187,7 +136,7 @@ public class PipelineCommand : ICommand
           c => c.Name == factory.Connection);
       if (targetConnection != null)
       {
-        return InferDatabaseIfPossible(targetConnection, connectionPool);
+        return DetectDatabase(targetConnection, connectionPool);
       }
     }
 

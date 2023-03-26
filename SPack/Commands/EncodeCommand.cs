@@ -1,4 +1,5 @@
 using ScriptPack.Helpers;
+using SPack.Prompting;
 
 namespace SPack.Commands;
 
@@ -8,22 +9,12 @@ namespace SPack.Commands;
 public class EncodeCommand : ICommand
 {
   /// <summary>
-  /// Obtém ou define um valor booleano que indica se a execução deve ser
-  /// verbosa ou não.
-  /// </summary>
-  public bool Verbose { get; set; } = false;
-
-  /// <summary>
-  /// O token a ser codificado.
-  /// </summary>
-  public string Token { get; set; } = "";
-
-  /// <summary>
   /// Codifica um token e exibe o resultado no console.
   /// </summary>
-  public async Task RunAsync()
+  public async Task RunAsync(CommandLineOptions options)
   {
-    var result = Crypto.Encrypt(this.Token);
+    var token = options.Encode.Value;
+    var result = Crypto.Encrypt(token);
     await Console.Out.WriteLineAsync(result);
   }
 }

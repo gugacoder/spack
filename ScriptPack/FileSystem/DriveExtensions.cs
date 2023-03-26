@@ -6,7 +6,7 @@ namespace ScriptPack.FileSystem;
 public static class DriveExtensions
 {
   /// <summary>
-  /// Obtém uma instância de Stream para o arquivo especificado.
+  /// Obtém um leitor de texto para o arquivo especificado.
   /// </summary>
   /// <param name="drive">
   /// Instância de IDrive.
@@ -15,7 +15,7 @@ public static class DriveExtensions
   /// Instância de ScriptNode.
   /// </param>
   /// <returns>
-  /// Instância de Stream para o arquivo especificado.
+  /// O leitor de texto para o arquivo especificado.
   /// </returns>
   /// <exception cref="InvalidOperationException">
   /// O script não possui um arquivo associado.
@@ -26,7 +26,11 @@ public static class DriveExtensions
   /// <exception cref="InvalidOperationException">
   /// O catálogo não possui um drive associado.
   /// </exception>
-  public static async Task<Stream> OpenScriptFileAsync(this ScriptNode script)
+  /// <exception cref="FileNotFoundException">
+  /// O arquivo não existe.
+  /// </exception>
+  public static async Task<TextReader> ReadScriptFileAsync(
+      this ScriptNode script)
   {
     var filePath = script.FilePath
         ?? throw new InvalidOperationException(
@@ -40,6 +44,12 @@ public static class DriveExtensions
         ?? throw new InvalidOperationException(
             $"O catálogo não possui um drive associado: {catalog.Name}");
 
-    return await drive.OpenFileAsync(script.FilePath);
+    if (!drive.FileExists(script.FilePath))
+      throw new FileNotFoundException(
+          $"O arquivo não existe: {script.FilePath}");
+
+    var encoding = catalog.Encoding ?? Drive.DefaultEncoding;
+
+    return await drive.ReadFileAsync(script.FilePath, encoding);
   }
 }

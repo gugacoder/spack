@@ -1,7 +1,7 @@
 using System.Runtime.Intrinsics.X86;
 using System.IO.Pipes;
 using ScriptPack.Domain;
-using ScriptPack.Algorithms;
+using ScriptPack.Model.Algorithms;
 using System.Reflection;
 using ScriptPack.FileSystem;
 
@@ -14,27 +14,13 @@ public class PipelineBuilder
 {
   private readonly List<INode> _nodes = new();
   private readonly ScriptSorterVisitor _scriptSorterVisitor = new();
-  private readonly ConnectionSelector _connectionSelector = new();
+  private readonly Dictionary<string, ConnectionNode> _connections = new();
 
   private readonly Dictionary<string, IScriptSorter> sorters = new()
   {
     { Orders.Auto, new ScriptSorterByDependency() },
     { Orders.Alpha, new ScriptSorterByName() }
   };
-  private bool _addBuiltInScripts;
-
-  /// <summary>
-  /// Adiciona os scripts internos fornecidos pelo aplicativo.
-  /// </summary>
-  /// <remarks>
-  /// Este método é usado para incluir scripts predefinidos que acompanham o
-  /// aplicativo. Os scripts acrescentam objetos de automação do ScriptPack
-  /// para scripts de migração de base de dados.
-  /// </remarks>
-  public void AddBuiltInScripts()
-  {
-    _addBuiltInScripts = true;
-  }
 
   /// <summary>
   /// Adiciona um único script à coleção de scripts.
@@ -43,15 +29,6 @@ public class PipelineBuilder
   public void AddScript(ScriptNode script)
   {
     this._nodes.Add(script);
-  }
-
-  /// <summary>
-  /// Adiciona uma coleção de scripts à coleção de scripts.
-  /// </summary>
-  /// <param name="scripts">A coleção de scripts a ser adicionada.</param>
-  public void AddScripts(IEnumerable<ScriptNode> scripts)
-  {
-    this._nodes.AddRange(scripts);
   }
 
   /// <summary>
@@ -67,15 +44,25 @@ public class PipelineBuilder
   }
 
   /// <summary>
-  /// Adiciona os scripts habilitados de vários nodos à coleção de scripts.
-  /// Se um nodo representar um script, o script será adicionado diretamente.
-  /// Se um nodo representar um produto, módulo, pacote, etc, todos os scripts
-  /// em sua estrutura habilitados serão adicionados.
+  /// Adiciona um template de conexão.
+  /// Serão construídos pipelines para cada conexão que satisfizer o template.
   /// </summary>
-  /// <param name="nodes">Os nodos a serem adicionados.</param>
-  public void AddScriptsFromNodes(IEnumerable<INode> nodes)
+  public void AddConnection(ConnectionNode connection)
   {
-    this._nodes.AddRange(nodes);
+    this._connections.Add(connection.Name.ToLower(), connection);
+  }
+
+  public ConnectionNode AddConnection(string name, string provider,
+      string connectionString)
+  {
+    var connection = new ConnectionNode
+    {
+      Name = name,
+      Provider = provider,
+      ConnectionStringFactory = new(connectionString)
+    };
+    _connections.Add(name.ToLower(), connection);
+    return connection;
   }
 
   /// <summary>
@@ -84,44 +71,65 @@ public class PipelineBuilder
   /// <returns>
   /// Lista de pipelines de execução.
   /// </returns>
-  public async Task<List<PipelineNode>> BuildPipelinesAsync()
+  public List<PipelineNode> BuildPipelines()
   {
-    List<INode> nodes = new(this._nodes);
+    // A implementação atual constrói um pipeline para cada par de produto e
+    // conexão correspondente.
 
-    if (_addBuiltInScripts)
-    {
-      var assembly = Assembly.GetExecutingAssembly();
-      var drive = new EmbeddedDrive(assembly);
+    // Selecionando os scripts e os agrupando por versão de produto.
+    // Note que a conexão pode ser nula. Neste caso a conexão será associada à
+    // conexão padrão se especificada.
+    List<(VersionNode Product, string? TargetConnection, ScriptNode[] Scripts)>
+        selection = new(
+            from node in _nodes
+            from script in node.DescendantsAndSelf<ScriptNode>()
+            let package = script.Ancestor<PackageNode>()!
+            from connection in package.TargetConnections.DefaultIfEmpty()
+            let version = script.Ancestor<VersionNode>()!
+            group script by (version, connection) into g
+            select (g.Key.version, g.Key.connection, g.Distinct().ToArray())
+        );
 
-      var catalogLoader = new CatalogLoader();
-      var catalogs = await catalogLoader.LoadCatalogsAsync(drive);
-
-      nodes.AddRange(catalogs);
-    }
-
-    // Agrupando por versão produto e base de dados.
-    var selection = (
-      // Selecionando nodos habiliados...
-      from node in this._nodes
-      where node.AncestorsAndSelf<IFileNode>().All(n => n.Enabled)
-      // Selecionando scripts habilitados...
-      from script in node.DescendantsAndSelf<ScriptNode>()
-      where script.Enabled
-      // Relacionando os pacotes...
-      let package = script.Ancestor<PackageNode>()!
-      from connection in _connectionSelector.SelectConnections(package)
-        // Relacionando as versões dos produtos...
-      let version = script.Ancestor<VersionNode>()
-      group script
-        by (version, connection)
-        into g
-      select (g.Key.version, g.Key.connection, scripts: g.Distinct().ToList())
-    ).ToList();
-
-    // Criando os pipelines para cada produto.
+    // Criando os pipelines para cada produto e conexão.
     var pipelines = new List<PipelineNode>();
-    foreach (var (version, connection, scripts) in selection)
+    foreach (var (version, targetConnection, scripts) in selection)
     {
+      var connectionName = targetConnection;
+
+      if (string.IsNullOrEmpty(connectionName))
+      {
+        var defaultConnections = (
+            from cn in _connections.Values
+            where cn.IsDefault
+            select cn.Name
+        ).ToArray();
+
+        if (defaultConnections.Count() == 0)
+        {
+          var product = version.Ancestor<ProductNode>()!;
+          throw new InvalidOperationException(
+              "Não foi especificada nenhuma conexão padrão para o produto " +
+              $"{product.Name} versão {version.Version}.");
+        }
+        if (defaultConnections.Count() > 1)
+        {
+          var product = version.Ancestor<ProductNode>()!;
+          throw new InvalidOperationException(
+              "Mais de uma conexão padrão foi especificada para o produto " +
+              $"{product.Name} versão {version.Version}.");
+        }
+
+        connectionName = defaultConnections[0];
+      }
+
+      if (!_connections.ContainsKey(connectionName.ToLower()))
+      {
+        // Não estamos construindo pipelines para a conexão alvo deste conjunto
+        // de scripts.
+        continue;
+      }
+
+      var connection = _connections[connectionName.ToLower()];
       var pipeline = CreatePipeline(version, connection, scripts);
       pipelines.Add(pipeline);
     }
@@ -146,7 +154,7 @@ public class PipelineBuilder
   /// O pipeline de execução.
   /// </returns>
   private PipelineNode CreatePipeline(VersionNode version,
-      ConnectionNode connection, List<ScriptNode> scripts)
+      ConnectionNode connection, ScriptNode[] scripts)
   {
     // Criando os estágios de execução para cada produto e agrupado pela
     // precedência do módulo e do pacote.
@@ -154,9 +162,12 @@ public class PipelineBuilder
     var selection = (
       from script in scripts
       let module = script.Ancestor<ModuleNode>()
-      let package = script.Ancestor<PackageNode>()
+      let package = script.Ancestor<PackageNode>()!
       group script
-        by new { major = module.Precedence, minor = package.Precedence }
+        by new {
+          major = module?.Precedence ?? 0,
+          minor = package.Precedence
+        }
         into g
       select g.ToList()
     ).ToList();

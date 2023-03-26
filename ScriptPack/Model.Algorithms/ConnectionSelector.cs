@@ -1,12 +1,12 @@
 using ScriptPack.Domain;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Aplica as regras de configuração para seleção da conexão apropriada para
 /// execução de scripts de migração de dados.
 /// </summary>
-public class ConnectionSelector
+internal class ConnectionSelector
 {
   /// <summary>
   /// Seleciona as conexões apropriadas para o pacote especificado com base nas
@@ -52,7 +52,7 @@ public class ConnectionSelector
 
     var selectedConnection = (
         from connection in connections
-        orderby connection.Default descending
+        orderby connection.IsDefault descending
         orderby connection.BoundTo is null descending
         select connection
     ).FirstOrDefault();

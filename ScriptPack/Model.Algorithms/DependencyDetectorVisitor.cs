@@ -1,11 +1,11 @@
 using ScriptPack.Domain;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Implementa um visitante que detecta as dependências de um script.
 /// </summary>
-public class DependencyDetectorVisitor : IAsyncVisitor
+internal class DependencyDetectorVisitor : IAsyncVisitor
 {
   private DependencyDetector _detector = new();
 

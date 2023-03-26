@@ -5,10 +5,11 @@ using ScriptPack.FileSystem;
 using ScriptPack.Helpers;
 using System.Collections;
 using static System.IO.SearchOption;
+using System.Text;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
-public class CatalogLoader
+internal class CatalogLoader
 {
   private PathPatternInterpreter _pathPatternInterpreter = new();
 
@@ -20,11 +21,16 @@ public class CatalogLoader
   /// O objeto <see cref="IDrive"/> que representa o driver a ser usado para
   /// carregar os nodos de catálogo.
   /// </param>
+  /// <param name="encoding">
+  /// O objeto <see cref="Encoding"/> que representa o codificador de caracteres
+  /// a ser usado para carregar os nodos de catálogo.
+  /// </param>
   /// <returns>
   /// Um array de objetos <see cref="CatalogNode"/>, representando os nodos de
   /// catálogo e seus subnodos.
   /// </returns>
-  public async Task<CatalogNode[]> LoadCatalogsAsync(IDrive drive)
+  public async Task<CatalogNode[]> LoadCatalogsAsync(IDrive drive,
+      Encoding? encoding = null)
   {
     //
     // A lista de caminhos contém os arquivos de descrição da estrutura do
@@ -195,11 +201,15 @@ public class CatalogLoader
     }
 
     // Pastas de scripts
-    paths.AddRange(drive
-        .GetDirectories("/", "*", AllDirectories)
-        .SelectMany(pasta => drive.GetFiles(pasta, "*.sql", AllDirectories))
-        .Select(arquivo => $"{Path.GetDirectoryName(arquivo)}/")
-        .Distinct());
+    var directories = new List<string>(new[] { "/" });
+    directories.AddRange(drive.GetDirectories("/", "*", AllDirectories));
+
+    paths.AddRange((
+        from directory in directories
+        from file in drive.GetFiles(directory, "*.sql", AllDirectories)
+        let folder = Path.GetDirectoryName(file)!
+        select folder.EndsWith("/") ? folder : $"{folder}/"
+    ).Distinct());
 
     return paths;
   }
@@ -593,6 +603,7 @@ public class CatalogLoader
       catalogs.RemoveAll(c => unidentifiedCatalogs.Contains(c));
       catalogs.Add(unifiedCatalog);
     }
+
     return catalogs;
   }
 
@@ -625,9 +636,13 @@ public class CatalogLoader
       AddToParent(parent, node);
     }
 
-    if (node is VersionNode version && string.IsNullOrEmpty(version.Version))
+    if (node is VersionNode version)
     {
-      version.Version = VersionNode.UnidentifiedVersion;
+      if (string.IsNullOrEmpty(version.Version))
+      {
+        version.Version = VersionNode.UnidentifiedVersion;
+      }
+      version.Name = version.Version;
     }
 
     if (string.IsNullOrEmpty(node.Name))
@@ -754,14 +769,21 @@ public class CatalogLoader
   private async Task<IFileNode?> ReadConfigFileAsync(IDrive drive, INode parent,
       Type type, string filePath)
   {
-    // Carregando o arquivo JSON...
-    using var reader = await drive.OpenFileAsync(filePath);
-    var @object = await JsonSerializer.DeserializeAsync(reader, type,
-        JsonOptions.CamelCase);
-    var node = (IFileNode)@object!;
-    node.Parent = parent;
-    node.FilePath = Path.GetDirectoryName(filePath)!;
-    return node;
+    try
+    {
+      // Carregando o arquivo JSON...
+      using var reader = await drive.OpenFileAsync(filePath);
+      var @object = await JsonSerializer.DeserializeAsync(reader, type,
+          JsonOptions.CamelCase);
+      var node = (IFileNode)@object!;
+      node.Parent = parent;
+      node.FilePath = Path.GetDirectoryName(filePath)!;
+      return node;
+    }
+    catch (Exception ex)
+    {
+      throw new Exception($"Erro ao carregar o arquivo {filePath}", ex);
+    }
   }
 
   /// <summary>

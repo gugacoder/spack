@@ -1,10 +1,37 @@
 using System.IO.Compression;
+using System.Text;
 using ScriptPack.Domain;
 
 namespace ScriptPack.FileSystem;
 
 public static class Drive
 {
+  /// <summary>
+  /// Codificação ISO-8859-1.
+  /// </summary>
+  public static readonly Encoding Iso88591 = Encoding.GetEncoding("ISO-8859-1");
+
+  /// <summary>
+  /// Codificação padrão para leitura de arquivos.
+  /// </summary>
+  public static readonly Encoding DefaultEncoding = Iso88591;
+
+  /// <summary>
+  /// Obtém o encoding indicado ou o encoding padrão caso seja indicado nulo.
+  /// </summary>
+  /// <param name="encoding">
+  /// Nome do encoding a ser obtido.
+  /// </param>
+  /// <returns>
+  /// Instância de Encoding correspondente ao nome especificado ou o encoding
+  /// padrão caso seja indicado nulo.
+  /// </returns>
+  public static Encoding GetEncoding(string? encoding)
+  {
+    if (string.IsNullOrWhiteSpace(encoding)) return DefaultEncoding;
+    return Encoding.GetEncoding(encoding);
+  }
+
   /// <summary>
   /// Obtém uma instância de IDrive baseado no caminho especificado.
   /// </summary>

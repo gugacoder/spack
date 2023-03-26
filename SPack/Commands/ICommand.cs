@@ -1,3 +1,5 @@
+using SPack.Prompting;
+
 namespace SPack.Commands;
 
 /// <summary>
@@ -6,14 +8,9 @@ namespace SPack.Commands;
 public interface ICommand
 {
   /// <summary>
-  /// Obtém ou define um valor booleano que indica se a execução deve ser
-  /// verbosa ou não.
-  /// </summary>
-  bool Verbose { get; set; }
-
-  /// <summary>
   /// Executa o comando.
   /// </summary>
+  /// <param name="options">As opções de linha de comando.</param>
   /// <returns>A tarefa assíncrona resultante da execução do comando.</returns>
-  Task RunAsync();
+  Task RunAsync(CommandLineOptions options);
 }

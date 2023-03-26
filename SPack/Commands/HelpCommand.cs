@@ -1,3 +1,5 @@
+using SPack.Prompting;
+
 namespace SPack.Commands;
 
 /// <summary>
@@ -33,7 +35,7 @@ public class HelpCommand : ICommand
   /// <exception cref="Exception">
   /// Lançada quando o arquivo de ajuda não pode ser encontrado ou lido.
   /// </exception>
-  public async Task RunAsync()
+  public async Task RunAsync(CommandLineOptions options)
   {
     var assembly = System.Reflection.Assembly.GetExecutingAssembly();
     var manifest = assembly.GetManifestResourceNames()

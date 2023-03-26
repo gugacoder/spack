@@ -1,6 +1,6 @@
 using ScriptPack.Domain;
 
-namespace ScriptPack.Algorithms;
+namespace ScriptPack.Model.Algorithms;
 
 /// <summary>
 /// Interface responsável por definir o contrato para ordenação de scripts.

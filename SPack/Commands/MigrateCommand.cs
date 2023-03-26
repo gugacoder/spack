@@ -1,9 +1,8 @@
-using ScriptPack.Algorithms;
-using ScriptPack.Domain;
-using ScriptPack.FileSystem;
-using ScriptPack.Helpers;
+using System.Text;
 using ScriptPack.Model;
+using SPack.Commands.Helpers;
 using SPack.Helpers;
+using SPack.Prompting;
 
 namespace SPack.Commands;
 
@@ -17,6 +16,11 @@ public class MigrateCommand : ICommand
   /// verbosa ou não.
   /// </summary>
   public bool Verbose { get; set; } = false;
+
+  /// <summary>
+  /// Obtém ou define a codificação dos arquivos de script.
+  /// </summary>
+  public Encoding? Encoding { get; set; }
 
   /// <summary>
   /// Obtém ou define o caminho da pasta ou arquivo do catálogo.
@@ -65,54 +69,33 @@ public class MigrateCommand : ICommand
   /// <summary>
   /// Executa o comando de migração de dados.
   /// </summary>
-  public async Task RunAsync()
+  public async Task RunAsync(CommandLineOptions options)
   {
-    //
-    // Abrindo o catálogo.
-    //
-    var repositoryOpener = new RepositoryCreator { DetectDependencies = true };
-    var repositoryNavigator =
-        await repositoryOpener.CreateRepositoryNavigatorAsync(CatalogPath);
+    // Selecionando os scripts.
+    var nodeSelectorBuilder = new PackageSelectionBuilder();
+    nodeSelectorBuilder.AddOptions(options);
+    nodeSelectorBuilder.AddValidators();
+    var nodes = await nodeSelectorBuilder.BuildPackageSelectionAsync();
 
-    var rootNode = repositoryNavigator.RootNode;
+    // Selecionando as conexões.
+    var connectionSelectorBuilder = new ConnectionSelectionBuilder();
+    connectionSelectorBuilder.AddOptions(options);
+    nodes.ForEach(connectionSelectorBuilder.AddConnectionsFromNode);
+    var connections = connectionSelectorBuilder.BuildConnectionSelection();
 
-    //
-    // Selecionando nodos.
-    //
-    var nodeSelector = new NodeSelector();
-    nodeSelector.SearchPackageCriteria = SearchPackageCriteria;
-    nodeSelector.SearchScriptCriteria = SearchScriptCriteria;
-    var selectedNodes = nodeSelector.SelectNodes(rootNode);
-
-    //
     // Montando pipelines.
-    //
     var pipelineBuilder = new PipelineBuilder();
-    pipelineBuilder.AddScriptsFromNodes(selectedNodes);
-    if (BuiltInScripts)
-    {
-      pipelineBuilder.AddBuiltInScripts();
-    }
-    var pipelines = await pipelineBuilder.BuildPipelinesAsync();
+    nodes.ForEach(pipelineBuilder.AddScriptsFromNode);
+    connections.ForEach(pipelineBuilder.AddConnection);
+    var pipelines = pipelineBuilder.BuildPipelines();
 
-    //
     // Detectando e reportando falhas.
-    //
     var faultReporter = new FaultReporter();
     var faultReport = faultReporter.CreateFaultReport(pipelines);
     if (faultReport.Length > 0)
     {
       faultReporter.PrintFaultReport(faultReport);
       return;
-    }
-
-    //
-    // Configurando as conexões.
-    //
-    if (DatabaseMaps?.Any() == true)
-    {
-      var connectionConfigurator = new ConnectionConfigurator();
-      connectionConfigurator.ConfigureConnections(rootNode, DatabaseMaps);
     }
 
     //
