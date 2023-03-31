@@ -35,7 +35,7 @@ public class CommandLineOptions
   /// objetos básicos do esquema ScriptPack.
   /// </summary>
   [Argument]
-  public Option Init { get; } = new();
+  public Switch Init { get; } = new();
 
   /// <summary>
   /// Representa a opção 'migrate' para executar os scripts de migração nas
@@ -59,11 +59,30 @@ public class CommandLineOptions
   public Switch Validate { get; } = new();
 
   /// <summary>
+  /// Representa a opção 'pack' para empacotar os scripts de migração em um
+  /// arquivo.
+  /// </summary>
+  [Argument]
+  public Option Pack { get; } = new();
+
+  /// <summary>
   /// Representa a opção 'encode' para codificar uma senha a ser usada em uma
   /// string de conexão.
   /// </summary>
   [Argument]
   public Option Encode { get; } = new();
+
+  /// <summary>
+  /// Representa a opção 'no-catalog' para desabilitar o carregamento de
+  /// catálogos de scripts.
+  /// </summary>
+  /// <remarks>
+  /// Esta opção é útil para ações que não necessitam de um catálogo de scripts.
+  /// Em associação com o parâmetro `--built-in` permite a execução de
+  /// procedimentos exclusivamente sobre o catálogo de scripts embutido.
+  /// </remarks>
+  [Argument(@long: true, 'n')]
+  public Switch NoCatalog { get; } = new();
 
   /// <summary>
   /// Representa a opção 'catalog' para definir o caminho da pasta ou arquivo do
@@ -78,6 +97,13 @@ public class CommandLineOptions
   /// </summary>
   [Argument(@long: true, 'p')]
   public OptionList Package { get; } = new();
+
+  /// <summary>
+  /// Representa a opção 'connection' para selecionar a conexão de destino da
+  /// execução dos scripts.
+  /// </summary>
+  [Argument(@long: true, 'C')]
+  public OptionList Connection { get; } = new();
 
   /// <summary>
   /// Representa a opção 'script' para selecionar os scripts ou pacotes de
@@ -107,6 +133,12 @@ public class CommandLineOptions
   /// </summary>
   [Argument(@long: true, 'b')]
   public Switch BuiltIn { get; } = new();
+
+  /// <summary>
+  /// Representa a opção 'password' para definir do pacote de scripts.
+  /// </summary>
+  [Argument(@long: true, 'P')]
+  public Option Password { get; } = new();
 
   /// <summary>
   /// Representa a opção 'encoding' para definir o tipo de codificação dos

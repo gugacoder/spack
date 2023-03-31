@@ -93,11 +93,40 @@ internal class DependencyDetector
     targetScript.Dependencies = targetScript.Dependencies
         .Concat(dependenciesFromStatements)
         .Concat(dependenciesFromAnnotations)
+        .Where(d => HasSameTargetConnection(d, targetScript))
         .Distinct()
         .Except(new[] { targetScript })
         .ToList();
 
     dependents.ForEach(d => d.Dependencies.Add(targetScript));
+  }
+
+  /// <summary>
+  /// Determina se dois scripts compartilham pelo menos uma conexão de destino.
+  /// </summary>
+  /// <param name="script1">
+  /// O primeiro script a ser comparado.
+  /// </param>
+  /// <param name="script2">
+  /// O segundo script a ser comparado.
+  /// </param>
+  /// <returns>
+  /// <c>true</c> se os dois scripts compartilham pelo menos uma conexão de
+  /// destino; caso contrário, <c>false</c>.
+  /// </returns>
+  private bool HasSameTargetConnection(ScriptNode script1, ScriptNode script2)
+  {
+    var package1 = script1.Ancestor<PackageNode>();
+    var package2 = script2.Ancestor<PackageNode>();
+
+    var targetConnections1 = package1?.TargetConnections
+        ?? Enumerable.Empty<string>();
+    var targetConnections2 = package2?.TargetConnections
+        ?? Enumerable.Empty<string>();
+
+    return targetConnections1.Select(c => c.ToLower())
+        .Intersect(targetConnections2.Select(c => c.ToLower()))
+        .Any();
   }
 
   /// <summary>

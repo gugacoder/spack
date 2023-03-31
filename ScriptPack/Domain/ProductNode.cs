@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace ScriptPack.Domain;
 
@@ -14,6 +14,13 @@ public class ProductNode : AbstractFileNode
   {
     this.Versions = new();
   }
+
+  /// <summary>
+  /// Obtém ou define a precedência do produto em relação aos demais.
+  /// Deve ser um número entre -9999 e 9999.
+  /// Precedência além destes valores é de uso exclusivo do sistema.
+  /// </summary>
+  public int Precedence { get; set; }
 
   /// <summary>
   /// Obtém ou define os módulos do produto.

@@ -1,0 +1,7 @@
+{
+  "name": "MsSql",
+  "title": "SQLServer",
+  "description": "Pacote de objetos de automação para o SQLServer",
+  "targetConnections": [ "*;SQLServer" ],
+  "precedence": -99999
+}

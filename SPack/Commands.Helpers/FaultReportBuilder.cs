@@ -1,36 +1,42 @@
 using ScriptPack.Domain;
+using SPack.Prompting;
 
-namespace SPack.Helpers;
+namespace SPack.Commands.Helpers;
 
 /// <summary>
 /// Utiltiário para validação da estrutura dos nodos do catálogos e de
 /// pipelines e suas fases.
 /// </summary>
-public class FaultReporter
+public class FaultReportBuilder
 {
-  /// <summary>
-  /// Obtém ou define um valor booleano que indica se a execução deve ser
-  /// verbosa ou não.
-  /// </summary>
-  public bool Verbose { get; set; } = false;
+  private CommandLineOptions _options = null!;
+  private List<INode> _nodes = new();
 
   /// <summary>
-  /// Representação de uma entrada de falhas no relatórios de falhas.
+  /// Adiciona critérios de seleção a partir das opções de linha de comando.
   /// </summary>
-  /// <param name="Node">
-  /// Nodo que contém as falhas.
+  /// <param name="options">
+  /// Opções de linha de comando.
   /// </param>
-  /// <param name="Faults">
-  /// Lista de falhas ocorridas no nodo.
-  /// </param>
-  public record ReportEntry(INode Node, Fault[] Faults);
+  public void AddOptions(CommandLineOptions options)
+  {
+    _options = options;
+  }
 
   /// <summary>
-  /// Cria um relatório de erros ocorridos nos nodos indicados.
+  /// Adiciona nodos para validação.
   /// </summary>
   /// <param name="nodes">
   /// Lista de nodos para análise de erros.
   /// </param>
+  public void AddNodes(params INode[] nodes)
+  {
+    _nodes.AddRange(nodes);
+  }
+
+  /// <summary>
+  /// Cria um relatório de erros ocorridos nos nodos indicados.
+  /// </summary>
   /// <returns>
   /// Uma tupla contendo o nodo e um array de erros relacionados.
   /// </returns>
@@ -47,15 +53,15 @@ public class FaultReporter
   /// de nodos de pipeline será analisada assim como a estrutura de árvore
   /// diretamente relacionada aos scripts componentes dos passos do pipeline.
   /// </remarks>
-  public ReportEntry[] CreateFaultReport(IEnumerable<INode> nodes)
+  public FaultReportEntry[] BuildFaultReport()
   {
     var pipeNodes =
-        from node in nodes.OfType<IPipeNode>()
+        from node in _nodes.OfType<IPipeNode>()
         from item in node.DescendantsAndSelf()
         select item;
 
     var repoNodes = (
-        from node in nodes.Except(pipeNodes)
+        from node in _nodes.Except(pipeNodes)
         from item in node.DescendantsAndSelf()
         select item
     ).Union(
@@ -68,32 +74,9 @@ public class FaultReporter
         from node in pipeNodes.Union(repoNodes)
         from fault in node.Faults
         group fault by node into g
-        select new ReportEntry(g.Key, g.ToArray())
+        select new FaultReportEntry(g.Key, g.ToArray())
     ).ToArray();
 
     return faultReport;
-  }
-
-  /// <summary>
-  /// Imprime um relatório de erros.
-  /// </summary>
-  /// <param name="faultReport">
-  /// Uma matriz de tuplas contendo o nodo e um array de erros relacionados.
-  /// </param>
-  public void PrintFaultReport(ReportEntry[] faultReport)
-  {
-    Console.Error.WriteLine("Foram contrados erros:");
-    Console.Error.WriteLine();
-    foreach (var (node, faults) in faultReport)
-    {
-      Console.Error.WriteLine(node.Path);
-      foreach (var fault in faults)
-      {
-        Console.Error.WriteLine($"- {fault.Message}");
-        if (Verbose) Console.Error.WriteLine(fault.Details);
-      }
-      Console.Error.WriteLine();
-    }
-    return;
   }
 }

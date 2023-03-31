@@ -36,7 +36,7 @@ public class RepositoryBuilder
   public void AddBuiltInCatalog()
   {
     var drive = new ResourceDrive(typeof(INode).Assembly);
-    _drives.Add(drive, Drive.DefaultEncoding);
+    _drives.Add(drive, Encoding.UTF8);
   }
 
   /// <summary>
@@ -81,10 +81,11 @@ public class RepositoryBuilder
 
     foreach (var (drive, driveEncoding) in _drives)
     {
-      var encoding = driveEncoding ?? _defaultEncoding ?? Drive.DefaultEncoding;
+      var encoding = driveEncoding ?? _defaultEncoding ?? Encodings.Iso88591;
       try
       {
         var catalogs = await catalogLoader.LoadCatalogsAsync(drive, encoding);
+        repository.Catalogs.AddRange(catalogs);
 
         if (_dependencyDetectorVisitor != null)
         {
@@ -94,13 +95,19 @@ public class RepositoryBuilder
         {
           repository.Accept(_circularDependencyDetectorVisitor);
         }
-
-        repository.Catalogs.AddRange(catalogs);
       }
       catch (Exception ex)
       {
-        repository.Faults.Add(Fault.EmitException(ex,
-            $"Falha ao carregar catálogo do drive {drive.Name}."));
+        var builder = new StringBuilder();
+        builder.AppendLine($"Falha ao carregar catálogo do drive {drive.Name}.");
+
+        var cause = ex;
+        do
+        {
+          builder.AppendLine(cause.Message);
+        } while ((cause = cause.InnerException) != null);
+
+        repository.Faults.Add(Fault.EmitException(ex, builder.ToString()));
       }
     }
 

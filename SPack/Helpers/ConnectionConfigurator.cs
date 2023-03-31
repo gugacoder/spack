@@ -53,7 +53,7 @@ public class ConnectionConfigurator
         continue;
       }
 
-      connection.ConnectionStringFactory = new(connectionString);
+      connection.Factory = new(connectionString);
     }
   }
 }

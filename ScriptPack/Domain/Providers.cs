@@ -11,59 +11,128 @@ namespace ScriptPack.Domain;
 public static class Providers
 {
   /// <summary>
-  /// Provedor de dados do SQL Server.
+  /// Nome usado internamente pelo ScriptPack (Alias) para a identificação do
+  /// provedor de dados do SQLServer.
   /// </summary>
-  public const string SqlServer = "System.Data.SqlClient";
+  public const string SQLServer = nameof(SQLServer);
 
   /// <summary>
-  /// Provedor de dados do PostgreSQL.
+  /// Nome usado internamente pelo ScriptPack (Alias) para a identificação do
+  /// provedor de dados do PostgreSQL.
   /// </summary>
-  public const string PostgreSQL = "Npgsql";
+  public const string PostgreSQL = nameof(PostgreSQL);
 
   /// <summary>
-  /// Provedor de dados do SQLite.
+  /// Informações de mapeamento de um provedor de dados.
   /// </summary>
-  public const string SQLite = "System.Data.SQLite";
+  /// <param name="Alias">
+  /// Nome usado internamente pelo ScriptPack para a identificação do provedor
+  /// de dados.
+  /// </param>
+  /// <param name="Name">
+  /// Nome do provedor de dados usado pelo DbProviderFactory.
+  /// </param>
+  /// <param name="Factory">
+  /// Tipo da fábrica de conexão de base de dados.
+  /// </param>
+  public record Info(string Alias, string Name, DbProviderFactory Factory);
 
   /// <summary>
-  /// Obtém o provedor de dados a partir de um nome ou apelido.
-  /// O apelido é definido pelas constantes desta classe.
+  /// Relação dos provedores de dados suportados pelo ScriptPack.
+  /// </summary>
+  /// <remarks>
+  /// Alias é o nome usado para referenciar o provedor de dados em configurações
+  /// do ScriptPack.
+  /// Driver é o nome do provedor de dados usado pelo DbProviderFactory.
+  /// Factory é o tipo da fábrica de conexão de base de dados.
+  /// </remarks>
+  public static readonly Info[] All = {
+      new (SQLServer, "System.Data.SqlClient", SqlClientFactory.Instance),
+      new (PostgreSQL, "Npgsql", NpgsqlFactory.Instance)
+  };
+
+  /// <summary>
+  /// Obtém o nome do provedor usado internamente pelo ScriptPack.
   /// </summary>
   /// <param name="providerNameOrAlias">
-  /// Nome ou apelido do provedor de dados.
+  /// Nome do provedor segundo o padrão de nome do DbProviderFactory ou nome
+  /// interno do ScriptPack para o provedor.
   /// </param>
   /// <returns>
   /// Nome do provedor de dados.
   /// </returns>
-  public static string GetProviderName(string providerNameOrAlias)
+  public static string? GetAlias(string providerNameOrAlias)
   {
-    return providerNameOrAlias.ToLower() switch
-    {
-      "sqlserver" => SqlServer,
-      "postgresql" => PostgreSQL,
-      "sqlite" => SQLite,
-      _ => providerNameOrAlias
-    };
+    var searchName = providerNameOrAlias.ToLower();
+    var instance = (
+        from provider in All
+        where provider.Alias.ToLower() == searchName
+          || provider.Name.ToLower() == searchName
+        select provider
+    ).FirstOrDefault();
+    return instance?.Alias;
   }
 
   /// <summary>
-  /// Obtém o provedor de dados a partir do nome do provedor de dados.
+  /// Obtém o nome do provedor no padrão do DbProviderFactory.
   /// </summary>
   /// <param name="providerNameOrAlias">
-  /// Nome ou apelido do provedor de dados.
+  /// Nome do provedor segundo o padrão de nome do DbProviderFactory ou nome
+  /// interno do ScriptPack para o provedor.
   /// </param>
   /// <returns>
-  /// Provedor de dados.
+  /// Nome do provedor de dados.
   /// </returns>
-  public static DbProviderFactory GetProviderFactory(string providerNameOrAlias)
+  public static string? GetName(string providerNameOrAlias)
   {
-    var providerName = GetProviderName(providerNameOrAlias);
-    return providerName switch
-    {
-      "System.Data.SqlClient" => SqlClientFactory.Instance,
-      "Npgsql" => NpgsqlFactory.Instance,
-      "System.Data.SQLite" => SqliteFactory.Instance,
-      _ => DbProviderFactories.GetFactory(providerName)
-    };
+    var searchName = providerNameOrAlias.ToLower();
+    var instance = (
+        from provider in All
+        where provider.Alias.ToLower() == searchName
+          || provider.Name.ToLower() == searchName
+        select provider
+    ).FirstOrDefault();
+    return instance?.Name;
+  }
+
+  /// <summary>
+  /// Obtém a instância da fábrica de conexões do provedor de dados.
+  /// </summary>
+  /// <param name="providerNameOrAlias">
+  /// Nome do provedor segundo o padrão de nome do DbProviderFactory ou nome
+  /// interno do ScriptPack para o provedor.
+  /// </param>
+  /// <returns>
+  /// Nome do provedor de dados.
+  /// </returns>
+  public static DbProviderFactory? GetFactory(string providerNameOrAlias)
+  {
+    var searchName = providerNameOrAlias.ToLower();
+    var instance = (
+        from provider in All
+        where provider.Alias.ToLower() == searchName
+          || provider.Name.ToLower() == searchName
+        select provider
+    ).FirstOrDefault();
+    return instance?.Factory;
+  }
+
+  /// <summary>
+  /// Verifica se os nomes de provedores referem-se ao mesmo provedor.
+  /// </summary>
+  /// <param name="providerNameOrAlias1">
+  /// Nome do provedor segundo o padrão de nome do DbProviderFactory ou nome
+  /// interno do ScriptPack para o provedor.
+  /// </param>
+  /// <param name="providerNameOrAlias2">
+  /// Nome do provedor segundo o padrão de nome do DbProviderFactory ou nome
+  /// interno do ScriptPack para o provedor.
+  /// </param>
+  public static bool AreEqual(string providerNameOrAlias1,
+      string providerNameOrAlias2)
+  {
+    var alias1 = GetAlias(providerNameOrAlias1);
+    var alias2 = GetAlias(providerNameOrAlias2);
+    return alias1 == alias2;
   }
 }

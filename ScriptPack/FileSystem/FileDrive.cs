@@ -228,7 +228,7 @@ public class FileDrive : IDrive
   public Task<TextReader> ReadFileAsync(string path, Encoding? encoding = null)
   {
     path = GetPath(path);
-    encoding ??= Drive.DefaultEncoding;
+    encoding ??= Encodings.Iso88591;
     TextReader reader = new StreamReader(path, encoding);
     return Task.FromResult(reader);
   }
@@ -252,7 +252,7 @@ public class FileDrive : IDrive
   public Task<string> ReadAllTextAsync(string path, Encoding? encoding = null)
   {
     path = GetPath(path);
-    encoding ??= Drive.DefaultEncoding;
+    encoding ??= Encodings.Iso88591;
     return File.ReadAllTextAsync(path, encoding);
   }
 
@@ -304,7 +304,7 @@ public class FileDrive : IDrive
       Encoding? encoding = null)
   {
     path = GetPath(path);
-    encoding ??= Drive.DefaultEncoding;
+    encoding ??= Encodings.Iso88591;
     return File.WriteAllTextAsync(path, reader.ReadToEnd(), encoding);
   }
 
@@ -328,7 +328,7 @@ public class FileDrive : IDrive
       Encoding? encoding = null)
   {
     path = GetPath(path);
-    encoding ??= Drive.DefaultEncoding;
+    encoding ??= Encodings.Iso88591;
     return File.WriteAllTextAsync(path, text, encoding);
   }
 }

@@ -47,10 +47,19 @@ internal class ScriptSorter : IScriptSorter
   /// </exception>
   private int CompareScripts(ScriptNode a, ScriptNode b)
   {
-    var byName =
-        a.Ancestor<PackageNode>()?.Order == Orders.Alpha
-        || b.Ancestor<PackageNode>()?.Order == Orders.Alpha;
-    return byName
+    var packageOrder1 = a.Ancestor<PackageNode>()?.Order ?? Orders.Dependency;
+    var packageOrder2 = b.Ancestor<PackageNode>()?.Order ?? Orders.Dependency;
+
+    if (packageOrder1 == Orders.Name && packageOrder2 == Orders.Dependency)
+    {
+      return -1;
+    }
+    if (packageOrder1 == Orders.Dependency && packageOrder2 == Orders.Name)
+    {
+      return 1;
+    }
+
+    return packageOrder1 == Orders.Name
         ? ScriptSorterByName.CompareScripts(a, b)
         : ScriptSorterByDependency.CompareScripts(a, b);
   }

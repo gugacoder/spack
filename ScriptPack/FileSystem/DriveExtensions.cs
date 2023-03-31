@@ -48,7 +48,7 @@ public static class DriveExtensions
       throw new FileNotFoundException(
           $"O arquivo não existe: {script.FilePath}");
 
-    var encoding = catalog.Encoding ?? Drive.DefaultEncoding;
+    var encoding = catalog.Encoding ?? Encodings.Iso88591;
 
     return await drive.ReadFileAsync(script.FilePath, encoding);
   }

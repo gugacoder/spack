@@ -28,6 +28,8 @@ public class CommandLineParser
   /// </exception>
   public CommandLineOptions ParseArgs(string[] args)
   {
+    args = ExpandArguments(args);
+
     if (args.Length == 0)
       throw new ArgumentException("USO INCORRETO! Nenhum argumento informado.");
 
@@ -99,4 +101,46 @@ public class CommandLineParser
 
     return options;
   }
+
+  /// <summary>
+  /// Expande argumentos curtos concatenados em uma matriz de argumentos
+  /// padronizada.
+  /// </summary>
+  /// <remarks>
+  /// Este método é útil quando se deseja permitir que o usuário concatene
+  /// vários argumentos curtos em um único argumento. Por exemplo, em vez de
+  /// passar "-abc" como três argumentos curtos, o usuário pode passar "-abc"
+  /// como um único argumento curto.
+  ///
+  /// Exemplo:
+  ///   string[] args = new string[] { "-abc", "--foo", "-d" };
+  ///   args = ExpandArguments(args);
+  ///
+  ///   // args agora contém: [ "-a", "-b", "-c", "--foo", "-d" ]
+  /// </remarks>
+  /// <param name="args">A matriz de argumentos para expandir.</param>
+  /// <returns>Uma nova matriz de argumentos expandidos.</returns>
+  private string[] ExpandArguments(string[] args)
+  {
+    List<string> expandedArgs = new List<string>();
+
+    foreach (string arg in args)
+    {
+      if (arg.StartsWith("-") && !arg.StartsWith("--"))
+      {
+        for (int i = 1; i < arg.Length; i++)
+        {
+          string shortArg = "-" + arg[i];
+          expandedArgs.Add(shortArg);
+        }
+      }
+      else
+      {
+        expandedArgs.Add(arg);
+      }
+    }
+
+    return expandedArgs.ToArray();
+  }
+
 }

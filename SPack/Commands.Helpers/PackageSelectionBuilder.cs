@@ -12,7 +12,8 @@ namespace SPack.Commands.Helpers;
 public class PackageSelectionBuilder
 {
   private CommandLineOptions _options = null!;
-  private bool _addValidators;
+  private RepositoryNode _repository = null!;
+  private readonly List<string> _extraSearchCriteria = new();
 
   /// <summary>
   /// Adiciona critérios de seleção a partir das opções de linha de comando.
@@ -26,21 +27,37 @@ public class PackageSelectionBuilder
   }
 
   /// <summary>
-  /// Adiciona validador de dependência cíclica e outros validadores comuns
-  /// disponíveis.
+  /// Adiciona um repositório de nodos.
   /// </summary>
-  public void AddValidators()
+  /// <param name="repository">
+  /// Repositório de nodos.
+  /// </param>
+  public void AddRepository(RepositoryNode repository)
   {
-    _addValidators = true;
+    _repository = repository;
+  }
+
+  /// <summary>
+  /// Adiciona um critério de pesquisa.
+  /// </summary>
+  /// <param name="criteria">
+  /// Critério de pesquisa.
+  /// </param>
+  public void AddSearchCriteria(string criteria)
+  {
+    _extraSearchCriteria.Add(criteria);
   }
 
   /// <summary>
   /// Constrói a seleção de nodos.
   /// </summary>
+  /// <param name="repository">
+  /// Repositório com os catálogos carregados.
+  /// </param>
   /// <returns>
   /// Lista de nodos selecionados.
   /// </returns>
-  public async Task<List<INode>> BuildPackageSelectionAsync()
+  public List<INode> BuildPackageSelection()
   {
     var options = _options;
 
@@ -54,51 +71,29 @@ public class PackageSelectionBuilder
 
     var searchCriteria = options.Search.Items;
     var packageSearchCriteria = options.Package.Items;
-    var catalogPath = options.Catalog.Value;
-    var builtInOn = options.BuiltIn.On;
     var encoding = options.Encode.On ? options.Encode.Value : null;
 
-    // Tratando opções.
-    if (string.IsNullOrEmpty(catalogPath))
-    {
-      catalogPath = Environment.CurrentDirectory;
-    }
+    // Criando criterio de pesquisa
+    var allSearchCriteria = searchCriteria.ToList();
     if (!string.IsNullOrEmpty(mainCriteria))
     {
-      searchCriteria.Add(mainCriteria);
+      allSearchCriteria.Add(mainCriteria);
     }
-    if (searchCriteria.Count == 0 && packageSearchCriteria.Count == 0)
+    _extraSearchCriteria.ForEach(c => allSearchCriteria.Add(c));
+    if (allSearchCriteria.Count == 0 && packageSearchCriteria.Count == 0)
     {
-      searchCriteria.Add("**");
+      allSearchCriteria.Add("**");
     }
-
-    // Criando um Drive para exploração dos catálogos.
-    var drive = Drive.GetDrive(catalogPath);
-
-    // Carregando os catálogos em um repositório.
-    var repositoryBuilder = new RepositoryBuilder();
-    repositoryBuilder.AddDrive(drive);
-    repositoryBuilder.AddDefaultEncoding(encoding: Drive.DefaultEncoding);
-    if (_addValidators)
-    {
-      repositoryBuilder.AddDependencyDetector();
-      repositoryBuilder.AddCircularDependencyDetector();
-    }
-    if (builtInOn)
-    {
-      repositoryBuilder.AddBuiltInCatalog();
-    }
-    var repository = await repositoryBuilder.BuildRepositoryAsync();
 
     // Criando um navegador para exploração dos catálogos.
-    var catalogs = repository.Descendants<CatalogNode>().ToArray();
-    INode selectedNode = catalogs.Length == 1 ? catalogs[0] : repository;
+    var catalogs = _repository.Descendants<CatalogNode>().ToArray();
+    INode selectedNode = catalogs.Length == 1 ? catalogs[0] : _repository;
     var repositoryNavigator = new TreeNodeNavigator(selectedNode);
 
     // Pesquisando os itens dos catálogos.
     List<INode> nodes = new();
 
-    foreach (var criteria in searchCriteria)
+    foreach (var criteria in allSearchCriteria)
     {
       nodes.AddRange(repositoryNavigator.ListNodes(criteria));
     }

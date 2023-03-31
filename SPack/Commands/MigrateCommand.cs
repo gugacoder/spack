@@ -12,70 +12,21 @@ namespace SPack.Commands;
 public class MigrateCommand : ICommand
 {
   /// <summary>
-  /// Obtém ou define um valor booleano que indica se a execução deve ser
-  /// verbosa ou não.
-  /// </summary>
-  public bool Verbose { get; set; } = false;
-
-  /// <summary>
-  /// Obtém ou define a codificação dos arquivos de script.
-  /// </summary>
-  public Encoding? Encoding { get; set; }
-
-  /// <summary>
-  /// Obtém ou define o caminho da pasta ou arquivo do catálogo.
-  /// </summary>
-  public string? CatalogPath { get; set; }
-
-  /// <summary>
-  /// Obtém ou define os pacotes a serem carregados.
-  /// Cada pacote tem a forma:
-  ///   PRODUTO[/VERSÃO[/MÓDULO[/PACOTE]]]
-  /// Exemplo:
-  ///   MyProduct/1.0.0/MyModule/MyPackage
-  /// </summary>
-  public List<string> SearchPackageCriteria { get; set; } = new();
-
-  /// <summary>
-  /// Obtém ou define os filtros de script a serem aplicados.
-  /// Um filtro é um padrão de pesquisa de pastas e arquivos virtuais na
-  /// árvode de nodos do catálogo.
-  /// 
-  /// Por exemplo, para selecionar todos os scripts da versão 1.0.0 disponível
-  /// no catálogo o filtro poderia ser: **/1.0.0.
-  /// </summary>
-  public List<string> SearchScriptCriteria { get; set; } = new();
-
-  /// <summary>
-  /// Obtém ou define os mapas de configuração de conexão.
-  /// Cada entrada no mapa tem a forma:
-  ///    [nome]:[connection string]
-  /// Exemplo:
-  ///    myapp:Server=127.0.0.1;Database=MyDB;User Id=MyUser;Password=MyPass;
-  /// </summary>
-  public List<string>? DatabaseMaps { get; set; } = new();
-
-  /// <summary>
-  /// Obtém ou define um valor booleano que indica se os scripts internos
-  /// devem ser incluídos na execução.
-  /// </summary>
-  /// <remarks>
-  /// Os scripts internos são scripts que acompanham o aplicativo e que
-  /// adicionam objetos de automação do ScriptPack para scripts de migração
-  /// de base de dados.
-  /// </remarks>
-  public bool BuiltInScripts { get; set; } = false;
-
-  /// <summary>
   /// Executa o comando de migração de dados.
   /// </summary>
   public async Task RunAsync(CommandLineOptions options)
   {
+    var repositoryUtilityBuilder = new RepositoryUtilityBuilder();
+    repositoryUtilityBuilder.AddOptions(options);
+    repositoryUtilityBuilder.AddValidators();
+
+    var repository = await repositoryUtilityBuilder.BuildRepositoryAsync();
+
     // Selecionando os scripts.
     var nodeSelectorBuilder = new PackageSelectionBuilder();
     nodeSelectorBuilder.AddOptions(options);
-    nodeSelectorBuilder.AddValidators();
-    var nodes = await nodeSelectorBuilder.BuildPackageSelectionAsync();
+    nodeSelectorBuilder.AddRepository(repository);
+    var nodes = nodeSelectorBuilder.BuildPackageSelection();
 
     // Selecionando as conexões.
     var connectionSelectorBuilder = new ConnectionSelectionBuilder();
@@ -85,16 +36,22 @@ public class MigrateCommand : ICommand
 
     // Montando pipelines.
     var pipelineBuilder = new PipelineBuilder();
-    nodes.ForEach(pipelineBuilder.AddScriptsFromNode);
+    nodes.ForEach(pipelineBuilder.AddScripts);
     connections.ForEach(pipelineBuilder.AddConnection);
     var pipelines = pipelineBuilder.BuildPipelines();
 
     // Detectando e reportando falhas.
-    var faultReporter = new FaultReporter();
-    var faultReport = faultReporter.CreateFaultReport(pipelines);
+    var faultReportBuilder = new FaultReportBuilder();
+    faultReportBuilder.AddOptions(options);
+    faultReportBuilder.AddNodes(repository);
+
+    var faultReport = faultReportBuilder.BuildFaultReport();
     if (faultReport.Length > 0)
     {
-      faultReporter.PrintFaultReport(faultReport);
+      var printer = new FaultReportPrinter();
+      printer.AddOptions(options);
+      printer.AddFaultReport(faultReport);
+      printer.PrintFaultReport();
       return;
     }
 
@@ -138,27 +95,20 @@ public class MigrateCommand : ICommand
           Console.WriteLine($"[STEP] {args.Phase.Name}");
       databaseMigrator.OnError += (sender, args) =>
       {
-        if (args.Script != null)
+        var cause = args.Exception;
+        Console.Error.WriteLine($"[ERRO] {cause.Message}");
+        while ((cause = cause.InnerException) != null)
         {
-          Console.Error.WriteLine($"[ERRO] {args.Exception.Message}");
-          if (Verbose)
-          {
-            Console.Error.WriteLine(args.Exception.StackTrace);
-          }
-          Console.Error.WriteLine();
+          Console.Error.WriteLine($"- {cause.Message}");
         }
-        else
+        if (verbose)
         {
-          Console.Error.WriteLine($"[ERRO] {args.Exception.Message}");
-          if (Verbose)
-          {
-            Console.Error.WriteLine(args.Exception.StackTrace);
-          }
-          Console.Error.WriteLine();
+          Console.Error.WriteLine(args.Exception.StackTrace);
         }
+        Console.Error.WriteLine();
       };
     }
-    
+
     databaseMigrator.OnMigrate += (sender, args) =>
         Console.WriteLine(args.Script.Path);
 

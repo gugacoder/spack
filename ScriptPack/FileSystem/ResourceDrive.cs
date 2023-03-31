@@ -19,7 +19,7 @@ public class ResourceDrive : IDrive
     _assembly = assembly;
     _files = _assembly
         .GetManifestResourceNames()
-        .Where(m => m.EndsWith(".json") || m.EndsWith(".sql"))
+        .Where(m => m.EndsWith(".jsonc") || m.EndsWith(".sql"))
         .ToArray();
     _folders = ExtractDirectoriesFromFilePaths(this._files);
   }
@@ -45,7 +45,7 @@ public class ResourceDrive : IDrive
   /// <summary>
   /// Nome de identificação do drive.
   /// </summary>
-  public string Name => _assembly.GetType().Name;
+  public string Name => _assembly.GetName().Name!;
 
   /// <summary>
   /// Determina se o drive é somente leitura.
@@ -71,11 +71,14 @@ public class ResourceDrive : IDrive
   public string[] GetFiles(string path, string searchPattern,
       SearchOption searchOption)
   {
+    if (!path.EndsWith("/")) path += "/";
+
     var files = new List<string>();
     var glob = Glob.Parse(searchPattern);
     foreach (var file in _files)
     {
       var folder = Path.GetDirectoryName(file)!;
+      if (!folder.EndsWith("/")) folder += "/";
 
       if (searchOption == SearchOption.TopDirectoryOnly &&
           !path.Equals(folder))
@@ -116,10 +119,15 @@ public class ResourceDrive : IDrive
   public string[] GetDirectories(string path, string searchPattern,
       SearchOption searchOption)
   {
+    if (!path.EndsWith("/")) path += "/";
+
     var folders = new List<string>();
     var glob = Glob.Parse(searchPattern);
-    foreach (var folder in _folders)
+    foreach (var item in _folders)
     {
+      var folder = item;
+      if (!folder.EndsWith("/")) folder += "/";
+
       if (searchOption == SearchOption.TopDirectoryOnly &&
           !path.Equals(folder))
       {
@@ -199,7 +207,7 @@ public class ResourceDrive : IDrive
     if (stream is null)
       throw new ArgumentException($"Arquivo não encontrado: {path}");
 
-    var reader = new StreamReader(stream, encoding ?? Drive.DefaultEncoding);
+    var reader = new StreamReader(stream, encoding ?? Encodings.Iso88591);
     return Task.FromResult((TextReader)reader);
   }
 
@@ -222,7 +230,7 @@ public class ResourceDrive : IDrive
     using (stream)
     {
       using var reader = new StreamReader(stream, encoding
-          ?? Drive.DefaultEncoding);
+          ?? Encodings.Iso88591);
       var text = reader.ReadToEndAsync();
       return text;
     }

@@ -1,5 +1,5 @@
 using System.Collections;
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace ScriptPack.Domain;
 
@@ -19,10 +19,12 @@ public class PackageNode : AbstractFileNode
   /// <summary>
   /// Define a ordem de execução dos scripts de migração de base de dados.
   /// </summary>
-  public string Order { get; set; } = Orders.Auto;
+  public string Order { get; set; } = Orders.Dependency;
 
   /// <summary>
   /// Obtém ou define a precedência do pacote em relação aos demais.
+  /// Deve ser um número entre -9999 e 9999.
+  /// Precedência além destes valores é de uso exclusivo do sistema.
   /// </summary>
   public int Precedence { get; set; }
 

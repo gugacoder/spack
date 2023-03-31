@@ -1,10 +1,11 @@
-using System.Text.Json;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace ScriptPack.Helpers;
 
 /// <summary>
 /// Fornecer opções de serialização/desserialização de objetos JSON com a
-/// biblioteca padrão System.Text.Json.
+/// biblioteca padrão Newtonsoft.Json.
 /// </summary>
 public static class JsonOptions
 {
@@ -12,10 +13,10 @@ public static class JsonOptions
   /// Opções de serialização/desserialização de objetos JSON com formatação
   /// CamelCase e com diferenciação de maiúsculas e minúsculas desativada.
   /// </summary>
-  public static readonly JsonSerializerOptions CamelCase = new()
+  public static readonly JsonSerializerSettings CamelCase = new()
   {
-    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    PropertyNameCaseInsensitive = true
+    ContractResolver = new CamelCasePropertyNamesContractResolver(),
+    MissingMemberHandling = MissingMemberHandling.Ignore
   };
 
   /// <summary>
@@ -23,10 +24,10 @@ public static class JsonOptions
   /// CamelCase, diferenciação de maiúsculas e minúsculas desativada e com
   /// indentação.
   /// </summary>
-  public static readonly JsonSerializerOptions IndentedCamelCase = new()
+  public static readonly JsonSerializerSettings IndentedCamelCase = new()
   {
-    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    PropertyNameCaseInsensitive = true,
-    WriteIndented = true
+    ContractResolver = new CamelCasePropertyNamesContractResolver(),
+    Formatting = Formatting.Indented,
+    NullValueHandling = NullValueHandling.Ignore
   };
 }

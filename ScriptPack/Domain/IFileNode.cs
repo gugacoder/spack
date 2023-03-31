@@ -1,4 +1,5 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+
 /// <summary>
 /// Representa um nodo em uma hierarquia de arquivos que pode ser processado por
 /// um mecanismo de script.

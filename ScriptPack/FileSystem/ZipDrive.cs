@@ -1,4 +1,4 @@
-using System.IO.Compression;
+using Ionic.Zip;
 using System.Text;
 using ScriptPack.Helpers;
 
@@ -11,34 +11,190 @@ namespace ScriptPack.FileSystem;
 public class ZipDrive : IDrive
 {
   /// <summary>
+  /// Modos de abertura de arquivo zip.
+  /// </summary>
+  public enum Mode
+  {
+    /// <summary>
+    /// Abre o arquivo zip em modo somente leitura.
+    /// </summary>
+    Read,
+    /// <summary>
+    /// Abre o arquivo zip para leitura e gravação.
+    /// </summary>
+    Writable,
+    /// <summary>
+    /// Abre o arquivo zip para leitura e gravação, sobrescrevendo o arquivo
+    /// existente.
+    /// </summary>
+    Overwrite
+  };
+
+  /// <summary>
+  /// Senha padrão utilizada para criptografar o arquivo .zip.
+  /// </summary>
+  // Password: SPack internal password!
+  private const string InternalPassword = "enc:ECIYEx9PKhwNFQYBIh5ZABUcMAUWAhBO";
+
+  private readonly Encoding _defaultEncoding;
+  private readonly ZipFile _zip;
+
+  /// <summary>
   /// Cria uma nova instância da classe ZipDrive a partir do caminho do arquivo
   /// .zip.
   /// </summary>
   /// <param name="filepath">Caminho completo do arquivo .zip.</param>
-  public ZipDrive(string filepath)
+  /// <param name="password">
+  /// Senha para descriptografar o arquivo .zip.
+  /// </param>
+  /// <param name="defaultEncoding">
+  /// Codificação de caracteres utilizada para descriptografar o arquivo .zip.
+  /// </param>
+  /// <param name="mode">
+  /// Modo de abertura do arquivo .zip.
+  /// </param>
+  public ZipDrive(string filePath, string? password = null,
+      Mode mode = Mode.Read, Encoding? defaultEncoding = null)
   {
-    this.ZipFile = filepath;
-    if (!File.Exists(this.ZipFile))
+    this.FilePath = filePath;
+    this.ReadOnly = mode == Mode.Read;
+    this._defaultEncoding = defaultEncoding ?? Encodings.Iso88591;
+    this._zip = OpenOrCreateZipFile(filePath, password, mode);
+  }
+
+  /// <summary>
+  /// Abre ou cria um arquivo .zip.
+  /// </summary>
+  /// <param name="filepath">Caminho completo do arquivo .zip.</param>
+  /// <param name="password">
+  /// Senha para descriptografar o arquivo .zip.
+  /// </param>
+  /// <param name="writable">
+  /// Indica se o arquivo .zip será aberto em modo somente leitura ou gravação.
+  /// </param>
+  /// <param name="mode">
+  /// Modo de abertura do arquivo .zip.
+  /// </param>
+  /// <returns>
+  /// Uma instância da classe ZipFile que representa o arquivo .zip.
+  /// </returns>
+  private static ZipFile OpenOrCreateZipFile(string filePath, string? password,
+      Mode mode)
+  {
+    if (mode == Mode.Overwrite && File.Exists(filePath))
     {
-      using var zip = System.IO.Compression.ZipFile.Open(this.ZipFile,
-          ZipArchiveMode.Create);
+      File.Delete(filePath);
     }
+
+    // Se o arquivo existe o abrimos, testamos e retornamos.
+    if (File.Exists(filePath))
+    {
+      return OpenZipFile(filePath, password);
+    }
+
+    // Se o arquivo não existe e não é para escrita falhamos.
+    if (mode == Mode.Writable || mode == Mode.Overwrite)
+    {
+      return CreateZipFile(filePath, password);
+    }
+
+    throw new FileNotFoundException("Arquivo .zip não encontrado.", filePath);
+  }
+
+  /// <summary>
+  /// Abre um arquivo .zip.
+  /// </summary>
+  /// <param name="filepath">Caminho completo do arquivo .zip.</param>
+  /// <param name="password">
+  /// Senha para descriptografar o arquivo .zip.
+  /// </param>
+  /// <remarks>
+  /// O arquivo .zip pode ter nenhma senha, uma senha de usuário ou uma senha
+  /// interna.
+  /// </remarks>
+  /// <returns>
+  /// Uma instância da classe ZipFile que representa o arquivo .zip.
+  /// </returns>
+  private static ZipFile OpenZipFile(string filePath, string? password)
+  {
+    // Checando formas de abrir o arquivo.
+    // O arquivo pode ter:
+    // -  Nenhuma senha.
+    // -  Uma senha de usuário especificada.
+    // -  Uma senha interna.
+    ZipFile? zip = null;
+    try
+    {
+      zip = ZipFile.Read(filePath);
+      zip.Password = string.IsNullOrEmpty(password)
+          ? null : Crypto.Decrypt(password);
+      zip.First();
+      return zip;
+    }
+    catch
+    {
+      zip?.Dispose();
+      try
+      {
+        zip = ZipFile.Read(filePath);
+        zip.Password = Crypto.Decrypt(InternalPassword);
+        zip.First();
+        return zip;
+      }
+      catch (Exception ex)
+      {
+        zip?.Dispose();
+        throw new FileLoadException(
+            "Falha ao abrir o arquivo .zip. O arquivo pode não ser válido ou " +
+            "a senha pode estar incorreta.", filePath, ex);
+      }
+    }
+  }
+
+  /// <summary>
+  /// Cria um arquivo .zip.
+  /// </summary>
+  /// <param name="filepath">Caminho completo do arquivo .zip.</param>
+  /// <param name="password">
+  /// Senha para criptografar o arquivo .zip.
+  /// </param>
+  /// <returns>
+  /// Uma instância da classe ZipFile que representa o arquivo .zip.
+  /// </returns>
+  private static ZipFile CreateZipFile(string filePath, string? password)
+  {
+    // Se o arqivo não existe e é para escrita o criamos.
+    ZipFile? zip = null;
+    try
+    {
+      zip = new ZipFile();
+      zip.Password = !string.IsNullOrEmpty(password)
+          ? Crypto.Decrypt(password)
+          : Crypto.Decrypt(InternalPassword);
+      zip.Save(filePath);
+    }
+    catch
+    {
+      zip?.Dispose();
+      throw;
+    }
+    return zip;
   }
 
   /// <summary>
   /// Obtém o nome do arquivo .zip sem a extensão.
   /// </summary>
-  public string Name => Path.GetFileNameWithoutExtension(ZipFile);
+  public string Name => Path.GetFileNameWithoutExtension(FilePath);
 
   /// <summary>
   /// Obtém um valor booleano que indica se o arquivo .zip é somente leitura.
   /// </summary>
-  public bool ReadOnly => true;
+  public bool ReadOnly { get; }
 
   /// <summary>
   /// Obtém o caminho completo do arquivo .zip.
   /// </summary>
-  public string ZipFile { get; private set; }
+  public string FilePath { get; private set; }
 
   /// <summary>
   /// Retorna o caminho completo de um arquivo ou pasta dentro do arquivo .zip.
@@ -89,24 +245,21 @@ public class ZipDrive : IDrive
   {
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Read);
-
-    var entries = archive.Entries
-      .Where(e => e.FullName.StartsWith(path,
-          StringComparison.OrdinalIgnoreCase))
-      .Where(e => Path.GetFileName(e.FullName).Like(searchPattern));
+    var entries = _zip.Entries
+        .Where(e => e.FileName.StartsWith(path,
+            StringComparison.InvariantCultureIgnoreCase))
+        .Where(e => Path.GetFileName(e.FileName).Like(searchPattern));
 
     if (searchOption == SearchOption.AllDirectories)
     {
       entries = entries.Concat(
-        entries.Where(e =>
-          e.FullName.StartsWith(path, StringComparison.OrdinalIgnoreCase)
-            && e.FullName.Count(f => f == '/') > path.Count(c => c == '/')));
+          entries.Where(e =>
+              e.FileName.StartsWith(path, StringComparison.OrdinalIgnoreCase)
+              && e.FileName.Count(f => f == '/') > path.Count(c => c == '/')));
     }
 
     var items = entries
-        .Select(e => Path.GetDirectoryName(e.FullName)!)
+        .Select(e => Path.GetDirectoryName(e.FileName)!)
         .Distinct()
         .Where(d => d != path)
         .Distinct()
@@ -133,23 +286,20 @@ public class ZipDrive : IDrive
   {
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Read);
-
-    var entries = archive.Entries
-      .Where(e => e.FullName.StartsWith(path,
-          StringComparison.OrdinalIgnoreCase))
-      .Where(e => Path.GetFileName(e.FullName).Like(searchPattern));
+    var entries = _zip.Entries
+        .Where(e => e.FileName.StartsWith(path,
+            StringComparison.OrdinalIgnoreCase))
+        .Where(e => Path.GetFileName(e.FileName).Like(searchPattern));
 
     if (searchOption == SearchOption.AllDirectories)
     {
       entries = entries.Concat(
-        entries.Where(e =>
-          e.FullName.StartsWith(path, StringComparison.OrdinalIgnoreCase)
-            && e.FullName.Count(f => f == '/') > path.Count(c => c == '/')));
+          entries.Where(e =>
+              e.FileName.StartsWith(path, StringComparison.OrdinalIgnoreCase)
+              && e.FileName.Count(f => f == '/') > path.Count(c => c == '/')));
     }
 
-    var items = entries.Select(e => e.FullName).Distinct().ToArray();
+    var items = entries.Select(e => e.FileName).Distinct().ToArray();
 
     return MakeRelative(items);
   }
@@ -165,11 +315,11 @@ public class ZipDrive : IDrive
   {
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Read);
-    var entries = archive.Entries.Where(e => e.FullName.StartsWith(path,
-        StringComparison.OrdinalIgnoreCase));
-    return entries.Any();
+    var exists = _zip.Entries
+        .Where(e => e.FileName.StartsWith(path,
+            StringComparison.OrdinalIgnoreCase))
+        .Any();
+    return exists;
   }
 
   /// <summary>
@@ -179,9 +329,7 @@ public class ZipDrive : IDrive
   {
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Read);
-    var entry = archive.GetEntry(path);
+    var entry = _zip.Entries.FirstOrDefault(e => e.FileName.Equals(path));
     return entry != null;
   }
 
@@ -192,14 +340,12 @@ public class ZipDrive : IDrive
   {
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Update);
-    var entries = archive.Entries.Where(e => e.FullName.StartsWith(path,
-        StringComparison.OrdinalIgnoreCase));
-    foreach (var entry in entries)
-    {
-      entry.Delete();
-    }
+    var entries = _zip.Entries
+        .Where(e => e.FileName.StartsWith(path,
+            StringComparison.OrdinalIgnoreCase))
+        .ToArray();
+
+    _zip.RemoveEntries(entries);
   }
 
   /// <summary>
@@ -209,37 +355,30 @@ public class ZipDrive : IDrive
   {
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Update);
-    var entry = archive.GetEntry(path);
+    var entry = _zip.Entries.FirstOrDefault(e => e.FileName.Equals(path));
     if (entry != null)
     {
-      entry.Delete();
+      _zip.RemoveEntry(entry);
     }
   }
 
   /// <summary>
   /// Abre um arquivo do arquivo ZIP em modo de leitura.
   /// </summary>
-  public async Task<Stream> OpenFileAsync(string path)
+  public Task<Stream> OpenFileAsync(string path)
   {
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Read);
-    var entry = archive.GetEntry(path);
-
-    var stream = entry?.Open() ?? throw new FileNotFoundException();
+    var entry = _zip.Entries.FirstOrDefault(e => e.FileName.Equals(path))
+        ?? throw new FileNotFoundException();
 
     MemoryStream? buffer = null;
     try
     {
       buffer = new MemoryStream();
-
-      await stream.CopyToAsync(buffer);
-
+      entry.Extract(buffer);
       buffer.Position = 0;
-      return buffer;
+      return Task.FromResult((Stream)buffer);
     }
     catch
     {
@@ -256,14 +395,13 @@ public class ZipDrive : IDrive
   {
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Read);
-    var entry = archive.GetEntry(path);
+    var entry = _zip.Entries.FirstOrDefault(e => e.FileName.Equals(path))
+        ?? throw new FileNotFoundException();
+
+    encoding ??= entry.AlternateEncoding;
 
     var stream = await OpenFileAsync(path);
-    var reader = new StreamReader(stream, encoding ?? Drive.DefaultEncoding);
-
-    return reader;
+    return new StreamReader(stream, encoding);
   }
 
   /// <summary>
@@ -273,9 +411,17 @@ public class ZipDrive : IDrive
       Encoding? encoding = null)
   {
     path = GetPath(path);
-    using var reader = await ReadFileAsync(path, encoding);
-    var text = await reader.ReadToEndAsync();
-    return text;
+
+    var entry = _zip.Entries.FirstOrDefault(e => e.FileName.Equals(path))
+        ?? throw new FileNotFoundException();
+
+    encoding ??= entry.AlternateEncoding;
+
+    using var stream = await OpenFileAsync(path);
+    using var reader = new StreamReader(stream, encoding);
+
+    var content = await reader.ReadToEndAsync();
+    return content;
   }
 
   /// <summary>
@@ -285,11 +431,10 @@ public class ZipDrive : IDrive
   {
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Update);
-    var entry = archive.CreateEntry(path);
-    using var entryStream = entry.Open();
-    return stream.CopyToAsync(entryStream);
+    _zip.AddEntry(path, stream);
+    _zip.Save(this.FilePath);
+
+    return Task.CompletedTask;
   }
 
   /// <summary>
@@ -299,20 +444,23 @@ public class ZipDrive : IDrive
   public async Task WriteFileAsync(string path, TextReader reader,
       Encoding? encoding = null)
   {
+    encoding ??= _defaultEncoding;
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Update);
-    var entry = archive.CreateEntry(path);
-    using var entryStream = entry.Open();
-    using var writer = new StreamWriter(entryStream,
-        encoding ?? Drive.DefaultEncoding);
+    // Bufferizando o conteúdo a ser compactado.
+    using var stream = new MemoryStream();
+    using var writer = new StreamWriter(stream);
 
     string? line;
     while ((line = await reader.ReadLineAsync()) != null)
     {
       await writer.WriteLineAsync(line);
     }
+    stream.Position = 0;
+
+    // Compactando o conteúdo.
+    _zip.AddEntry(path, stream);
+    _zip.Save(this.FilePath);
   }
 
   /// <summary>
@@ -321,14 +469,44 @@ public class ZipDrive : IDrive
   public Task WriteAllTextAsync(string path, string text,
       Encoding? encoding = null)
   {
+    encoding ??= Encodings.Iso88591;
     path = GetPath(path);
 
-    using var archive = System.IO.Compression.ZipFile.Open(ZipFile,
-        ZipArchiveMode.Update);
-    var entry = archive.CreateEntry(path);
-    using var entryStream = entry.Open();
-    using var writer = new StreamWriter(entryStream,
-        encoding ?? Drive.DefaultEncoding);
-    return writer.WriteAsync(text);
+    // Bufferizando o conteúdo a ser compactado.
+    using var stream = new MemoryStream();
+
+    byte[] bytes = encoding.GetBytes(text);
+    stream.Write(bytes, 0, bytes.Length);
+    stream.Position = 0;
+
+    // Compactando o conteúdo.
+    _zip.AddEntry(path, stream);
+    _zip.Save(this.FilePath);
+
+    return Task.CompletedTask;
+  }
+
+  /// <summary>
+  /// Verifica se o caminho especificado corresponde a um arquivo ZIP válido.
+  /// </summary>
+  /// <param name="filePath">Caminho para ser verificado.</param>
+  /// <param name="password">Senha do arquivo ZIP.</param>
+  /// <returns>
+  /// True se o caminho corresponder a um arquivo ZIP válido,
+  /// caso contrário, False.
+  /// </returns>
+  public static bool IsZipFile(string filePath, string? password)
+  {
+    try
+    {
+      if (File.Exists(filePath))
+      {
+        OpenZipFile(filePath, password);
+        return true;
+      }
+    }
+    catch { }
+    return false;
   }
 }
+

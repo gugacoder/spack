@@ -41,10 +41,15 @@ public static class VirtualPath
     {
       filename = Path.GetFileName(script.FilePath);
     }
-    else
+    else if (node is IFileNode)
     {
       var nodeName = node.GetType().Name[..^"Node".Length].Kebaberize();
-      filename = $"{nodeName}.json";
+      filename = $"-{nodeName}.jsonc";
+    }
+    else
+    {
+      var extension = node.GetType().Name[..^"Node".Length].Kebaberize();
+      filename = $"{node.Name}.{extension}";
     }
 
     var path = $"{folder}/{filename}";

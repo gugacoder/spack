@@ -1,5 +1,7 @@
+using System.Security.Cryptography;
 using System.Data.Common;
 using ScriptPack.Domain;
+using ScriptPack.Helpers;
 
 namespace ScriptPack.Model.Algorithms;
 
@@ -33,11 +35,43 @@ internal class DatabaseConnector
   {
     var connectionString = await CreateConnectionStringAsync(connection);
 
-    var dbProviderFactory = Providers.GetProviderFactory(connection.Provider);
+    connectionString = DecryptConnectionString(connectionString);
+
+    var dbProviderFactory = Providers.GetFactory(connection.Provider)
+        ?? throw new ArgumentException(
+            $"Fábrica de conexão não encontrada: {connection.Provider}");
+
     var dbConnection = dbProviderFactory.CreateConnection()!;
     dbConnection.ConnectionString = connectionString;
 
     return dbConnection;
+  }
+
+  /// <summary>
+  /// Decripta a senha do usuário caso esteja decriptada.
+  /// </summary>
+  /// <param name="connectionString">
+  /// String de conexão com a base de dados.
+  /// </param>
+  /// <returns>
+  /// A string de conexão com a senha do usuário decriptada.
+  /// </returns>
+  private string DecryptConnectionString(string connectionString)
+  {
+    var tokens = connectionString.Split(';');
+    var passwordToken = tokens.FirstOrDefault(t =>
+        t.StartsWith("password=", StringComparison.InvariantCultureIgnoreCase)
+        || t.StartsWith("pwd=", StringComparison.InvariantCultureIgnoreCase)
+        );
+    if (passwordToken != null)
+    {
+      var key = passwordToken.Split('=')[0];
+      var password = passwordToken.Split('=', 2)[1];
+      password = Crypto.Decrypt(password);
+      connectionString = connectionString.Replace(passwordToken,
+          $"{key}={password}");
+    }
+    return connectionString;
   }
 
   /// <summary>
@@ -65,7 +99,7 @@ internal class DatabaseConnector
     //
     //  Checando a string de conexão da própria fábrica de conexão.
     //
-    var connectionStringFactory = connection.ConnectionStringFactory
+    var connectionStringFactory = connection.Factory
         ?? throw new Exception(
               $"Fábrica de configuração de conexão não encontrada: " +
               $"{connection.Name}");
@@ -127,7 +161,7 @@ internal class DatabaseConnector
       parameters.Add("Application Name=ScriptPack");
     }
 
-    if (Providers.GetProviderName(connection.Provider) == Providers.SqlServer)
+    if (Providers.GetAlias(connection.Provider) == Providers.SQLServer)
     {
       if (!parameters.Any(p => p.StartsWith("Timeout=")))
       {

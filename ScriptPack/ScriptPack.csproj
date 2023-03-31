@@ -8,7 +8,7 @@
 
   <ItemGroup>
     <EmbeddedResource
-        Include="META\scripts\**\*.*"
+        Include="META\**\*.*"
         LogicalName="/%(RecursiveDir)%(Filename)%(Extension)"
         />
   </ItemGroup>

@@ -107,14 +107,25 @@ public class ConnectionSelectionBuilder
         Name = name,
         Provider = provider,
         IsDefault = (template?.IsDefault ?? name.Like("Default")),
-        ConnectionStringFactory = new(connectionString)
+        Factory = new(connectionString)
       };
 
       // Note que a conexão definida na linha de comando sobrepõe a conexão
       // pré-definida no catálogo. Este é extamente o comportamento esperado e
       // permite que a conexão seja completamente cusomizada na linha de
       // comando.
-      selectedConnections[name] = connectionNode;
+      selectedConnections[name.ToLower()] = connectionNode;
+    }
+
+    // Filtrando as conexões caso selecionadas na linha de comando.
+    if (_options?.Connection.On == true)
+    {
+      var connectionNames = _options.Connection.Items
+          .Select(p => p.ToLower())
+          .ToArray();
+      selectedConnections = selectedConnections
+          .Where(p => connectionNames.Contains(p.Key))
+          .ToDictionary(p => p.Key, p => p.Value);
     }
 
     return selectedConnections.Values.ToList();

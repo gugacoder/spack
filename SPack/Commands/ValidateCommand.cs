@@ -19,21 +19,30 @@ public class ValidateCommand : ICommand
   /// </summary>
   public async Task RunAsync(CommandLineOptions options)
   {
+    var repositoryUtilityBuilder = new RepositoryUtilityBuilder();
+    repositoryUtilityBuilder.AddOptions(options);
+    repositoryUtilityBuilder.AddValidators();
+
+    var repository = await repositoryUtilityBuilder.BuildRepositoryAsync();
+
     var nodeSelectorBuilder = new PackageSelectionBuilder();
     nodeSelectorBuilder.AddOptions(options);
-    nodeSelectorBuilder.AddValidators();
+    nodeSelectorBuilder.AddRepository(repository);
 
-    var nodes = await nodeSelectorBuilder.BuildPackageSelectionAsync();
+    var nodes = nodeSelectorBuilder.BuildPackageSelection();
 
-    // Detectando falhas.
-    var faultReporter = new FaultReporter { Verbose = options.Verbose.On };
-    var faultReport = faultReporter.CreateFaultReport(nodes);
+    // Detectando e reportando falhas.
+    var faultReportBuilder = new FaultReportBuilder();
+    faultReportBuilder.AddOptions(options);
+    faultReportBuilder.AddNodes(repository);
 
-    // Reportando falhas.
+    var faultReport = faultReportBuilder.BuildFaultReport();
     if (faultReport.Length > 0)
     {
-      Environment.ExitCode = 1;
-      faultReporter.PrintFaultReport(faultReport);
+      var printer = new FaultReportPrinter();
+      printer.AddOptions(options);
+      printer.AddFaultReport(faultReport);
+      printer.PrintFaultReport();
       return;
     }
 

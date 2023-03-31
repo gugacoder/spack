@@ -21,22 +21,22 @@ BEGIN
   FROM sys.dm_exec_sessions
   WHERE session_id = @@SPID
 
-  -- Removendo argumentos de sessões expiradas
-  DELETE FROM scriptpack.argument
+  -- Removendo argumentos de sessÃµes expiradas
+  DELETE FROM scriptpack.arguments
   WHERE NOT EXISTS (
     SELECT * FROM sys.dm_exec_sessions
-    WHERE session_id = scriptpack.argument.session_id
-      AND login_time = scriptpack.argument.login_time
+    WHERE session_id = scriptpack.arguments.session_id
+      AND login_time = scriptpack.arguments.login_time
   )
 
   -- Removendo valor corrente se houver
-  DELETE FROM scriptpack.argument
+  DELETE FROM scriptpack.arguments
   WHERE session_id = @session_id
     AND login_time = @login_time
     AND name = @argument
 
   -- Inserindo o novo valor
-  INSERT INTO scriptpack.argument (session_id, login_time, name, value)
+  INSERT INTO scriptpack.arguments (session_id, login_time, name, value)
   VALUES (
       @session_id
     , @login_time

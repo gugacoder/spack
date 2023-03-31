@@ -57,7 +57,7 @@ internal class BatchExtractor
       {
         var buffer = new StringBuilder();
         buffer.AppendLine(line);
-        
+
         batches.Add(new() { Index = 0, Buffer = buffer, Repetition = 0 });
         continue;
       }
@@ -73,6 +73,9 @@ internal class BatchExtractor
     // buffer por ela, dessa forma, invocações subsequentes ao método
     // ToString() retornam o conteúdo do buffer já concatenado. 
     batches.ForEach(b => b.FlatBuffer());
+
+    // Remove os blocos vazios.
+    batches.RemoveAll(b => string.IsNullOrWhiteSpace(b.Buffer.ToString()));
 
     return batches.ToArray();
   }

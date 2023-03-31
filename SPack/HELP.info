@@ -4,19 +4,32 @@ SINOPSE
     spack [ACAO] [OPÇÃO]
 
 AÇÕES
-    list PATH
+    list ( OBJECT | CAMINHO )
         Lista o conteúdo do catálogo de scripts.
+        OBJECT
+            Tipo de objeto a ser listado.
+            Pode ser um dos seguintes, no singular ou plural:
+                product     Para listar produtos e suas versões.
+                package     Para listar pacotes disponíveis.
+                connection  Para listar as conexões pré-configuradas.
+        CAMINHO
+            Caminho de um objeto do catálogo de scripts.
+            Mais detalhes na seção de parâmetros mais abaixo.
         Opções
             --catalog CATÁLOGO
-            --package PACOTE
-            --search PATH
+            --password SENHA
+            --select-package PACOTE
+            --select-connection NOME
+            --search CAMINHO
             --built-in
-    show PATH
+    show CAMINHO
         Exibe o conteúdo de objetos do catálogo de scripts.
         Opções
             --catalog CATÁLOGO
-            --package PACOTE
-            --search PATH
+            --password SENHA
+            --select-package PACOTE
+            --select-connection NOME
+            --search CAMINHO
             --built-in
     init
         Apenas inicializa as bases de dados com os objetos básicos do esquema
@@ -31,8 +44,10 @@ AÇÕES
         Executa os scripts de migração nas bases de dados.
         Opções
             --catalog CATÁLOGO
-            --package PACOTE
-            --search PATH
+            --password SENHA
+            --select-package PACOTE
+            --select-connection NOME
+            --search CAMINHO
             --built-in
             --arg ARG
             --database STRING_DE_CONEXÃO
@@ -40,24 +55,61 @@ AÇÕES
         Exibe o plano de execução dos pipelines.
         Opções
             --catalog CATÁLOGO
-            --package PACOTE
-            --search PATH
+            --password SENHA
+            --select-package PACOTE
+            --select-connection NOME
+            --search CAMINHO
             --built-in
+            --database STRING_DE_CONEXÃO
     validate
         Checa por falhas nos catálogos de scripts.
         Opções
             --catalog CATÁLOGO
-            --package PACOTE
-            --search PATH
+            --password SENHA
+            --select-package PACOTE
+            --select-connection NOME
+            --search CAMINHO
+    pack ARQUIVO_DESTINO
+        Empacota os scripts de migração em um arquivo.
+        O pacote produzido é um arquivo compactado com o algoritmo ZIP e pode
+        ser usado pelo spack para migrar uma base de dados.
+        Opcionalmente o pacote pode ser protegido por uma senha interna
+        reconhecida apenas pelo SPack ou por uma senha a escolha do usuário.
+        ARQUIVO_DESTINO
+            Nome do arquivo de pacote destino.
+            A extensão sugerida para o nome do arquivo é:
+                .scriptpack
+            Essa será a extensão adicionada ao arquivo caso seja informado um
+            nome de arquivo sem extensão.
+            Outras sugesões comuns são:
+                .spk
+                .spack
+        Opções
+            --catalog CATÁLOGO
+            --password SENHA
+            --select-package PACOTE
+            --select-connection NOME
+            --search CAMINHO
+            --built-in
+            --password [ SENHA ]
     encode SENHA
         Codifica uma senha para ser usada em uma string de conexão.
 
 OPÇÕES
+    -n, --no-catalog
+            Não carrega o catálogo de scripts.
+            Esta opção é útil para ações que não necessitam de um catálogo de
+            scripts.
+            Em associação com o parâmetro `--built-in` permite a execução de
+            procedimentos exclusivamente sobre o catálogo de scripts embutido.
     -c, --catalog CATÁLOGO
             Define o caminho da pasta ou arquivo do catálogo.
             Se omitido o SPack tentará localizar o catálogo a partir da pasta
             atual. É esperado que a pasta contenha apenas um catálogo.
-    -p, --package PACOTE
+    -e, --encoding ENCODING
+            Define o encoding dos arquivos de script.
+            O valor padrão é `ISO-8859-1`.
+    -p, --select-package PACOTE
             Forma simplificada de selecionar pacotes de scripts para migração.
             Pode ocorrer várias vezes para selecionar vários pacotes.
             Caso sejam encontrados pacotes duplicados em diferentes catálogos
@@ -73,18 +125,27 @@ OPÇÕES
                PACOTE:  Nome do pacote. Pode ser omitido, para selecionar todos
                         os pacotes do módulo ou do produto.
             Exemplos:
-                --package MyApp
+                --select-package MyApp
                     Seleciona a versão mais recente de MyApp.
                     Equivalente a:
-                        --package MyApp/latest
-                --package MyApp/1.0.0
+                        --select-package MyApp/latest
+                --select-package MyApp/1.0.0
                     Seleciona a versão 1.0.0 de MyApp.
-                --package MyApp/1.0.0/Contabilidade
+                --select-package MyApp/1.0.0/Contabilidade
                     Seleciona o módulo Contabilidade da versão 1.0.0 de MyApp.
-                --package MyApp/latest/Suprimentos/Cadastros
+                --select-package MyApp/latest/Suprimentos/Cadastros
                     Seleciona o pacote Cadastros do módulo Suprimentos da versão
                     mais recente de MyApp.
-    -s, --search PATH
+    -C, --select-connection NOME
+            Seleciona a conexão destino da execução dos scripts.
+            Pode ocorrer várias vezes para selecionar várias conexões.
+            Usado na filtragem dos pacotes executados quando há conexões
+            pré-configuradas no catálogo.
+            NOME
+                Nome da conexão pré-configurada no catálogo.
+            Para determinar as conexões pré-configuradas no catálogo use a ação:
+                spack list connection
+    -s, --search CAMINHO
             Seleciona os scripts ou pacotes de scripts que serão executados na
             base de dados.
             Pode ocorrer várias vezes para selecionar vários scripts e pacotes.
@@ -102,18 +163,45 @@ OPÇÕES
             Configura a base de dados que será migrada.
             Pode ocorrer várias vezes para configurar as várias bases de dados
             disponíveis no catálogo.
-    -b  --built-in
+    -b, --built-in
             Acrescenta os scripts embutidos no catálogo.
             Por padrão os scripts embutidos não são acrescentados.
             Os scripts embutidos contêm os objetos de automação de scripts do
             esquema `scriptpack`.
-    -e  --encoding ENCODING
-            Define o encoding dos arquivos de script.
-            O valor padrão é `ISO-8859-1`.
+    -P, --password [ SENHA ]
+            Define a senha para um arquivo de pacote de scripts.
+            Senha de Usuário:
+                A senha indicada no ato de geração do pacote deve ser indicado
+                no ato da execução dos scripts.
+                Para evitar que a senha seja exposta pode-se codificar a senha
+                com o uso da ação `encode`.
+                Exemplo:
+                    spack encode MyPassword
+                    # Produz a saída: enc:DgspEQccNB0LFA==
+            Senha Interna:
+                Quando o argumento --password e indicado sem valor o pacote
+                recebe uma senha interna reconhecida apenas pela própria versão
+                do SPack que criou o pacote ou versões posteriores.
+                Neste caso não é necessário indicar o argumento --password no
+                ato da execução dos scripts, porque o SPack é capaz de
+                determinar se o pacote está ou não protegido por senha.
+            Exemplos:
+                spack pack MyPack --password
+                spack pack MyPack --password MyPassword
+                spack pack MyPack --password enc:DgspEQccNB0LFA==
     -v, --verbose
             Mostra informações adicionais durante a execução.
     -h, --help
             Mostra esta ajuda.
+
+Os nomes curtos dos parâmetros podem ser concatenados em grupos de parâmetros
+curtos para reduzir a quantidade de caracteres digitados. Contanto que apenas o
+último parâmetro especificado exija um valor o agrupamento de quaisquer nomes
+curtos é válido.
+
+Por exemplo, os comandos abaixo são equivalentes:
+    spack migrate -vnbd Server=127.0.0.1;Database=MyDB;...
+    spack migrate -v -n -b -d Server=127.0.0.1;Database=MyDB;...
 
 PARÂMETROS
     CATÁLOGO
@@ -127,16 +215,16 @@ PARÂMETROS
         -   O caminho de um arquivo ZIP contendo um catálogo de scripts.
         -   O caminho de um arquivo JSON que esteja na raiz pasta raiz do
             catálogo de scripts.
-            Em geral este arquivo tem o nome de `catalog.json`.
+            Em geral este arquivo tem o nome de `-catalog.jsonc`.
         Exemplos:
         -   No Windows:
             -   C:\Scripts
             -   C:\Scripts.zip
-            -   C:\Scripts\catalog.json
+            -   C:\Scripts\-catalog.jsonc
         -   No Linux:
             -   /home/user/Scripts
             -   /home/user/Scripts.zip
-            -   /home/user/Scripts/catalog.json
+            -   /home/user/Scripts/-catalog.jsonc
     PACOTE
         A identificação de um pacote na forma:
             <PRODUTO>/<VERSÃO>/<MÓDULO>/<PACOTE>
@@ -170,7 +258,7 @@ PARÂMETROS
                 Exemplo:
                     MyApp/1.0.0/Contabilidade/Relatórios
                     MyApp/1.0.0/Contabilidade/Cadastros
-    PATH
+    CAMINHO
         Um caminho ou padrão de pesquisa de pastas e arquivos no diretório
         virtual do catálogo de scripts. O padrão de pesquisa suporta as opções
         comuns do Glob Pattern, que é um tipo de padrão de string utilizado para
@@ -227,10 +315,10 @@ PARÂMETROS
                 Exemplo:
                     "Server=localhost;Database=MyDB;User Id=sa;Password=123"
         As conexões nomeadas podem ser pré-definidas no catálogo no arquivo de
-        configuração do catálogo (catalog.json), na coleção de conexões da sua
+        configuração do catálogo (-catalog.jsonc), na coleção de conexões da sua
         propriedade `connections`.
         Por exemplo:
-            // catalog.json
+            // -catalog.jsonc
             {
               "connections": [
                 { "name": "mydb1", "provider": "SqlServer" },

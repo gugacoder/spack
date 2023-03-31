@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace ScriptPack.Domain;
 
 /// <summary>
@@ -49,12 +47,12 @@ public class ConnectionNode : AbstractNode
   /// <summary>
   /// Driver de base de dados.
   /// </summary>
-  public string Provider { get; set; } = nameof(Providers.SqlServer);
+  public string Provider { get; set; } = Providers.SQLServer;
 
   /// <summary>
   /// Fábrica de conexão de base de dados baseado em consulta SQL.
   /// </summary>
-  public ConnectionStringFactoryNode? ConnectionStringFactory
+  public ConnectionStringFactoryNode? Factory
   {
     get => Get<ConnectionStringFactoryNode>();
     set => Set(value);

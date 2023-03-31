@@ -10,12 +10,12 @@ public static class Orders
   /// O sistema detecta e ordena automaticamente os scripts pela análise de
   /// dependência no corpo do script.
   /// </summary>
-  public const string Auto = "auto";
+  public const string Dependency = "dependency";
 
   /// <summary>
   /// O sistema executa os scripts em ordem alfabética de nome de arquivo.
   /// </summary>
-  public const string Alpha = "alpha";
+  public const string Name = "name";
 
   /// <summary>
   /// Retorna o tipo de ordenação a partir de uma string de entrada.
@@ -36,13 +36,13 @@ public static class Orders
     // retorna "Auto".
     return order.ToLower() switch
     {
-      Alpha => Alpha,
-      "alfa" => Alpha,
-      "alfabética" => Alpha,
-      "alfabético" => Alpha,
-      "alfabetica" => Alpha,
-      "alfabetico" => Alpha,
-      _ => Auto,
+      Name => Name,
+      "alfa" => Name,
+      "alfabética" => Name,
+      "alfabético" => Name,
+      "alfabetica" => Name,
+      "alfabetico" => Name,
+      _ => Dependency,
     };
   }
 }

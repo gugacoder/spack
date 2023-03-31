@@ -1,6 +1,6 @@
 using System.Data;
 using System.Text;
-using System.Text.Json;
+using Newtonsoft.Json;
 using ScriptPack.Model.Algorithms;
 using ScriptPack.Domain;
 using ScriptPack.FileSystem;
@@ -22,10 +22,16 @@ public class ShowCommand : ICommand
   /// </summary>
   public async Task RunAsync(CommandLineOptions options)
   {
+    var repositoryUtilityBuilder = new RepositoryUtilityBuilder();
+    repositoryUtilityBuilder.AddOptions(options);
+
+    var repository = await repositoryUtilityBuilder.BuildRepositoryAsync();
+
     var nodeSelectorBuilder = new PackageSelectionBuilder();
     nodeSelectorBuilder.AddOptions(options);
+    nodeSelectorBuilder.AddRepository(repository);
 
-    var nodes = await nodeSelectorBuilder.BuildPackageSelectionAsync();
+    var nodes = nodeSelectorBuilder.BuildPackageSelection();
 
     // Imprimindo o conteúdo dos nodos.
     foreach (var node in nodes)
@@ -50,12 +56,13 @@ public class ShowCommand : ICommand
           }
         }
 
-        // TODO: System.Text.Json.JsonSerializer ainda não é capaz de serializar
+        // TODO: Newtonsoft.Json.JsonSerializer ainda não é capaz de serializar
         // derivados de ObservableCollection<T> e List<T> sem hackings.
         // Estamos deixando a serialização incompleta por enquanto.
         // Se necessário for, recomendo a utilização da biblioteca
         // Newtonsoft.Json.
-        var json = JsonSerializer.Serialize(node, JsonOptions.IndentedCamelCase);
+        var json = JsonConvert.SerializeObject(node,
+            JsonOptions.IndentedCamelCase);
         await Console.Out.WriteLineAsync(json);
       }
       catch (Exception ex)

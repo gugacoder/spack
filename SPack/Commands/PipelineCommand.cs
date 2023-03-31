@@ -20,11 +20,18 @@ public class PipelineCommand : ICommand
   /// </summary>
   public async Task RunAsync(CommandLineOptions options)
   {
+    var repositoryUtilityBuilder = new RepositoryUtilityBuilder();
+    repositoryUtilityBuilder.AddOptions(options);
+    repositoryUtilityBuilder.AddValidators();
+
+    var repository = await repositoryUtilityBuilder.BuildRepositoryAsync();
+
     // Selecionando os scripts.
     var nodeSelectorBuilder = new PackageSelectionBuilder();
     nodeSelectorBuilder.AddOptions(options);
-    nodeSelectorBuilder.AddValidators();
-    var nodes = await nodeSelectorBuilder.BuildPackageSelectionAsync();
+    nodeSelectorBuilder.AddRepository(repository);
+
+    var nodes = nodeSelectorBuilder.BuildPackageSelection();
 
     // Selecionando as conexões.
     var connectionSelectorBuilder = new ConnectionSelectionBuilder();
@@ -34,16 +41,22 @@ public class PipelineCommand : ICommand
 
     // Montando pipelines.
     var pipelineBuilder = new PipelineBuilder();
-    nodes.ForEach(pipelineBuilder.AddScriptsFromNode);
+    nodes.ForEach(pipelineBuilder.AddScripts);
     connections.ForEach(pipelineBuilder.AddConnection);
     var pipelines = pipelineBuilder.BuildPipelines();
 
     // Detectando e reportando falhas.
-    var faultReporter = new FaultReporter();
-    var faultReport = faultReporter.CreateFaultReport(pipelines);
+    var faultReportBuilder = new FaultReportBuilder();
+    faultReportBuilder.AddOptions(options);
+    faultReportBuilder.AddNodes(repository);
+
+    var faultReport = faultReportBuilder.BuildFaultReport();
     if (faultReport.Length > 0)
     {
-      faultReporter.PrintFaultReport(faultReport);
+      var printer = new FaultReportPrinter();
+      printer.AddOptions(options);
+      printer.AddFaultReport(faultReport);
+      printer.PrintFaultReport();
       return;
     }
 
@@ -75,12 +88,17 @@ public class PipelineCommand : ICommand
     foreach (var pipeline in pipelines)
     {
       var database = DetectDatabase(pipeline.Connection, connectionPool);
+      var databaseInfo =
+          $"{pipeline.Connection.Name} (" +
+          $"Provider={pipeline.Connection.Provider};" +
+          $"Database={database}" +
+          $")";
 
       Console.WriteLine($"+- PIPELINE {pipeline.Name}");
       foreach (var stage in pipeline.Stages)
       {
         Console.WriteLine($"   +- STAGE {stage.Name}");
-        Console.WriteLine($"      +- DATABASE {database}");
+        Console.WriteLine($"      +- CONNECTION {databaseInfo}");
         foreach (var step in stage.Steps)
         {
           Console.WriteLine($"      +- STEP {step.Name}");
@@ -114,7 +132,7 @@ public class PipelineCommand : ICommand
   private string DetectDatabase(ConnectionNode connection,
       ConnectionNode[] connectionPool)
   {
-    var factory = connection.ConnectionStringFactory;
+    var factory = connection.Factory;
     if (factory?.ConnectionString.Contains("=") ?? false)
     {
       var databaseName = (

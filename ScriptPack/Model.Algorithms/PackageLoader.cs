@@ -1,4 +1,4 @@
-using System.Text.Json;
+using Newtonsoft.Json;
 using ScriptPack.Domain;
 using ScriptPack.FileSystem;
 using ScriptPack.Helpers;
@@ -13,23 +13,23 @@ namespace ScriptPack.Model.Algorithms;
 //
 //  Em geral, existem arquivos de definição de todos estes nodos exceto para
 //  definição do produto. Para fins de facilitade de uso, o arquivo do produto,
-//  chamado de "product.json", é o mesmo arquivo de definição de versão.
+//  chamado de "-product.jsonc", é o mesmo arquivo de definição de versão.
 //
 //  Os arquivos gerais são:
 //
-//  -   Catálogo: "catalog.json" (obrigatório)
-//  -   Versão: "product.json" (opcional)
-//  -   Módulo: "module.json" (opcional)
-//  -   Pacote: "package.json" (opcional)
+//  -   Catálogo: "-catalog.jsonc" (obrigatório)
+//  -   Versão: "-product.jsonc" (opcional)
+//  -   Módulo: "-module.jsonc" (opcional)
+//  -   Pacote: "-package.jsonc" (opcional)
 //
 //  Exemplo:
-//      /catalogo.json
-//      /MeuProduto/tags/1.0.0/product.json
-//      /MeuProduto/tags/1.0.0/MeuModulo/module.json
-//      /MeuProduto/tags/1.0.0/MeuModulo/MeuPacote/package.json
-//      /MeuProduto/trunk/product.json
-//      /MeuProduto/trunk/MeuModulo/module.json
-//      /MeuProduto/trunk/MeuModulo/MeuPacote/package.json
+//      /catalogo.jsonc
+//      /MeuProduto/tags/1.0.0/-product.jsonc
+//      /MeuProduto/tags/1.0.0/MeuModulo/-module.jsonc
+//      /MeuProduto/tags/1.0.0/MeuModulo/MeuPacote/-package.jsonc
+//      /MeuProduto/trunk/-product.jsonc
+//      /MeuProduto/trunk/MeuModulo/-module.jsonc
+//      /MeuProduto/trunk/MeuModulo/MeuPacote/-package.jsonc
 //
 //  Para resolver o problema de falta de definição de produto, o algoritmo
 //  abaixo carrega as versões a partir do arquivo e não carrega o arquivo de
@@ -107,7 +107,7 @@ internal class PackageLoader : IPackageLoader
       typeName = typeName.Substring(0, typeName.Length - "Node".Length);
     }
 
-    var fileName = $"{typeName.ToLower()}.json";
+    var fileName = $"-{typeName.ToLower()}.jsonc";
 
     filePaths = Drive.GetFiles("/", fileName, SearchOption.AllDirectories);
     foreach (var filePath in filePaths)
@@ -138,7 +138,7 @@ internal class PackageLoader : IPackageLoader
     try
     {
       var json = await Drive.ReadAllTextAsync(filePath);
-      node = JsonSerializer.Deserialize<T>(json, JsonOptions.CamelCase)!;
+      node = JsonConvert.DeserializeObject<T>(json, JsonOptions.CamelCase)!;
     }
     catch (Exception ex)
     {
