@@ -20,7 +20,7 @@ public static class ExceptionExtensions
   public static string GetStackMessage(this Exception exception)
   {
     var message = new StringBuilder();
-    while (exception != null)
+    while (exception is not null)
     {
       message.Append("- ").AppendLine(exception.Message);
       exception = exception.InnerException!;
@@ -44,7 +44,7 @@ public static class ExceptionExtensions
   public static string GetStackTrace(this Exception exception)
   {
     var stackTrace = new StringBuilder();
-    while (exception != null)
+    while (exception is not null)
     {
       stackTrace.Append((stackTrace.Length == 0) ? "Fault: " : "Cause: ");
       stackTrace.AppendLine(exception.Message);

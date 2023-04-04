@@ -1,0 +1,6 @@
+{
+  "name": "PostgreSQL",
+  "description": "Pacote de objetos de automação para o PostgreSQL",
+  "targetConnections": [ "*;PostgreSQL" ],
+  "precedence": -99999
+}

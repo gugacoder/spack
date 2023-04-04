@@ -66,7 +66,7 @@ internal class DependencyDetector
 
     using var scriptReader = await targetScript.ReadScriptFileAsync();
 
-    while ((line = await scriptReader.ReadLineAsync()) != null)
+    while ((line = await scriptReader.ReadLineAsync()) is not null)
     {
       var tokens = line.Split("--", 2);
       var statements = tokens.First().Trim();

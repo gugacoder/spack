@@ -18,5 +18,5 @@ public abstract class AbstractFileNode : AbstractNode, IFileNode
   /// </summary>
   [JsonIgnore]
   public virtual string? FileFolder
-      => FilePath != null ? System.IO.Path.GetDirectoryName(FilePath) : null;
+      => FilePath is not null ? System.IO.Path.GetDirectoryName(FilePath) : null;
 }

@@ -4,16 +4,11 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>spack</AssemblyName>
     <RootNamespace>ScriptPack</RootNamespace>
+    <RuntimeIdentifiers>linux-x64;osx-x64;win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../ScriptPack/ScriptPack.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="HELP.info">
-      <LogicalName>HELP.info</LogicalName>
-    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

@@ -1,29 +1,48 @@
 <Project>
+
   <!-- Common Properties -->
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
   <!-- Common Dependencies -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.1.0" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="7.0.3" />
-    <PackageReference Include="Npgsql" Version="7.0.2" />
+    <PackageReference
+        Include="Microsoft.Data.SqlClient"
+        Version="5.1.0" />
+    <PackageReference
+        Include="Npgsql"
+        Version="7.0.2" />
     <PackageReference Include="Packaging.Targets">
       <Version>0.1.220-*</Version>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="DotNet.Glob" Version="3.1.3" />
-    <PackageReference Include="Humanizer.Core" Version="2.8.26" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="5.0.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="DotNetZip" Version="1.16.0" />
+    <PackageReference
+        Include="DotNet.Glob"
+        Version="3.1.3" />
+    <PackageReference
+        Include="Humanizer.Core"
+        Version="2.8.26" />
+    <PackageReference
+        Include="Microsoft.Extensions.Configuration"
+        Version="5.0.0" />
+    <PackageReference
+        Include="Newtonsoft.Json"
+        Version="13.0.3" />
+    <PackageReference
+        Include="DotNetZip"
+        Version="1.16.0" />
   </ItemGroup>
+
   <!-- Common Embeddable Files -->
   <ItemGroup>
-    <EmbeddedResource Include="Assets/**">
+    <EmbeddedResource
+        Include="Assets\**\*.*"
+        LogicalName="/%(RecursiveDir)%(Filename)%(Extension)">
       <CopyToOutputDirectory>None</CopyToOutputDirectory>
     </EmbeddedResource>
   </ItemGroup>
+
 </Project>

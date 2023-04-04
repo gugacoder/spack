@@ -37,5 +37,6 @@ public class Context
   /// <cref name="ScriptPack.Model.ConnectionNode" /> e o valor corresponde à
   /// string de conexão.
   /// </summary>
-  public Dictionary<string, string> ConnectionStrings { get; } = new();
+  public Dictionary<string, string> ConnectionStrings { get; }
+      = new(StringComparer.OrdinalIgnoreCase);
 }

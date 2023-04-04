@@ -33,7 +33,7 @@ internal class BatchExtractor
 
     using var scriptReader = await script.ReadScriptFileAsync();
 
-    while ((line = await scriptReader.ReadLineAsync()) != null)
+    while ((line = await scriptReader.ReadLineAsync()) is not null)
     {
       // Checa se a linha contém o comando "GO" seguido de um número opcional.
       var match = GoRegex.Match(line);

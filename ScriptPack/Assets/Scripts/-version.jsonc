@@ -1,0 +1,6 @@
+{
+  "name": "ScriptPack",
+  "description": "Objetos de automação para o ScriptPack",
+  "version": "0.0.1",
+  "precedence": -99999
+}

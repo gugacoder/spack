@@ -3,6 +3,7 @@ using ScriptPack.Model.Algorithms;
 using ScriptPack.Domain;
 using Microsoft.Data.SqlClient;
 using Npgsql;
+using ScriptPack.Helpers;
 
 namespace ScriptPack.Model;
 
@@ -115,25 +116,26 @@ public class DatabaseMigrator
     {
       OnPipelineStart?.Invoke(this, new(Pipeline));
 
-      var catalogs = (
+      var connectionTemplates = (
           from step in Pipeline.Descendants<StepNode>()
           from script in step.Scripts
           let catalog = script.Ancestor<CatalogNode>()
-          where catalog != null
-          select catalog
-      ).Distinct();
+          where catalog is not null
+          select catalog.Descendants<ConnectionNode>()
+      ).SelectMany(x => x).Distinct().ToArray();
 
-      var connections = (
-          from catalog in catalogs
-          from connection in catalog.Connections
-          select connection
-      ).Distinct().ToArray();
+      var connectionPoolBuilder = new ConnectionPoolBuilder();
+      Context.ConnectionStrings.ForEach(
+          x => connectionPoolBuilder.AddConnectionString(x.Key, x.Value));
+      connectionTemplates.ForEach(
+          x => connectionPoolBuilder.AddConnectionTemplate(x));
+      var connectionPool = await connectionPoolBuilder.BuildConnectionPoolAsync();
 
       foreach (var stage in Pipeline.Stages)
       {
         OnStageStart?.Invoke(this, new(stage));
 
-        await MigrateStageAsync(stage, connections);
+        await MigrateStageAsync(stage, connectionPool);
 
         OnStageEnd?.Invoke(this, new(stage));
       }
@@ -152,49 +154,61 @@ public class DatabaseMigrator
   /// Executa as migrações de uma etapa do pipeline de migração.
   /// </summary>
   /// <param name="stage">Etapa a ser executada.</param>
-  /// <param name="connections">Conexões disponíveis.</param>
+  /// <param name="connectionPool">Conexões disponíveis.</param>
   private async Task MigrateStageAsync(StageNode stage,
-      ConnectionNode[] connections)
+      ConnectionPool connectionPool)
   {
     DbConnection? cn = null;
     try
     {
       var pipeline = stage.Ancestor<PipelineNode>()!;
-
-      //
-      // Estabelecendo conexão...
-      //
-      var connector = new DatabaseConnector(connections,
-          Context.ConnectionStrings);
-      cn = await connector.CreateConnectionAsync(pipeline.Connection);
-
-      ConnectListeners(cn);
-
-      await cn.OpenAsync();
-
-      OnConnection?.Invoke(this, new(stage, cn));
-
-      var optimizer = new ConnectionOptimizer();
-      await optimizer.OptimizeConnectionAsync(cn);
+      var connectionSetup = new ConnectionSetup
+      {
+        Context = this.Context,
+        ConnectionPool = connectionPool,
+        TargetConnection = pipeline.Connection
+      };
 
       //
       //  Determinando passos...
       //
-      var pretran = stage.Steps.Where(s => s.Tag == Steps.PreTransaction)
+      var pretran = stage.Steps
+          .Where(s => s.Tag == Steps.PreTransaction)
           .ToArray();
-      var pre = stage.Steps.Where(s => s.Tag == Steps.Pre).ToArray();
-      var main = stage.Steps.Where(s => s.Tag == Steps.Main).ToArray();
-      var pos = stage.Steps.Where(s => s.Tag == Steps.Pos).ToArray();
-      var postran = stage.Steps.Where(s => s.Tag == Steps.PosTransaction)
+      var pre = stage.Steps
+          .Where(s => s.Tag == Steps.Pre)
           .ToArray();
+      var main = stage.Steps
+          .Where(s => s.Tag == Steps.Main)
+          .ToArray();
+      var pos = stage.Steps
+          .Where(s => s.Tag == Steps.Pos)
+          .ToArray();
+      var postran = stage.Steps
+          .Where(s => s.Tag == Steps.PosTransaction)
+          .ToArray();
+
+      //
+      // Estabelecendo conexão...
+      //
+      cn = await ConnectAsync(pipeline.Connection, connectionPool);
+
+      PlugConnectionListeners(cn);
+      OnConnection?.Invoke(this, new(stage, cn));
+
+      await connectionSetup.OptimizeConnectionAsync(cn, tx: null);
+      await connectionSetup.SetArgumentsAsync(cn, null);
 
       //
       //  Executando passos...
       //
+
       foreach (var step in pretran) await ExecuteStepAsync(step, cn);
 
       using (var tx = await cn.BeginTransactionAsync())
       {
+        await connectionSetup.BindDatabasesAsync(cn, tx);
+
         foreach (var step in pre) await ExecuteStepAsync(step, cn, tx);
         foreach (var step in main) await ExecuteStepAsync(step, cn, tx);
         foreach (var step in pos) await ExecuteStepAsync(step, cn, tx);
@@ -213,8 +227,41 @@ public class DatabaseMigrator
     }
     finally
     {
-      if (cn != null) await cn.DisposeAsync();
+      if (cn is not null) await cn.DisposeAsync();
     }
+  }
+
+  /// <summary>
+  /// Estabelece uma conexão com o banco de dados e aplica as otimizações
+  /// necessárias.
+  /// </summary>
+  /// <param name="connection">
+  /// Configuração da conexão a ser estabelecida.
+  /// </param>
+  /// <param name="connectionPool">
+  /// Conjunto das conexões disponíveis para a migração.
+  /// </param>
+  /// <returns>Conexão estabelecida.</returns>
+  private async Task<DbConnection> ConnectAsync(ConnectionNode connection,
+      ConnectionPool connectionPool)
+  {
+    if (!connectionPool.ContainsKey(connection.Name))
+    {
+      throw new InvalidOperationException(
+          $"Conexão '{connection.Name}' não encontrada.");
+    }
+
+    var providerFactory = Providers.GetFactory(connection.Provider);
+    if (providerFactory is null)
+    {
+      throw new InvalidOperationException(
+          $"Provedor de banco de dados '{connection.Provider}' não encontrado.");
+    }
+
+    var cn = providerFactory.CreateConnection()!;
+    cn.ConnectionString = connectionPool[connection.Name].ConnectionString;
+    await cn.OpenAsync();
+    return cn;
   }
 
   /// <summary>
@@ -224,7 +271,7 @@ public class DatabaseMigrator
   /// <param name="cn">
   /// A conexão do banco de dados à qual os listeners serão conectados.
   /// </param>
-  private void ConnectListeners(DbConnection cn)
+  private void PlugConnectionListeners(DbConnection cn)
   {
     if (OnConnectionMessage is null) return;
 

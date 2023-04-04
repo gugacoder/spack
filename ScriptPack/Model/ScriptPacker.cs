@@ -10,16 +10,20 @@ namespace ScriptPack.Model;
 /// </summary>
 public class ScriptPacker
 {
-  private string? _targetFile;
+  private string? _filePath;
   private string? _password;
   private readonly List<INode> _nodes = new();
 
   /// <summary>
-  /// Caminho do arquivo de destino do pacote.
+  /// Caminho do arquivo ZIP de destino do pacote.
+  /// Este será o arquivo de pacote gerado no formato ZIP com os scripts
+  /// protegidos por senha.
+  /// O arquivo ZIP será explorável mas o conteúdo dos arquivos empacotados
+  /// nele somente poderão ser lidos se a senha for fornecida.
   /// </summary>
-  public void AddTargetFile(string filePath)
+  public void AddTargetZipFile(string filePath)
   {
-    _targetFile = filePath;
+    _filePath = filePath;
   }
 
   /// <summary>
@@ -49,13 +53,13 @@ public class ScriptPacker
   /// </summary>
   public async Task PackScriptsAsync()
   {
-    if (_targetFile is null)
+    if (string.IsNullOrEmpty(_filePath))
     {
       throw new InvalidOperationException(
-          "Arquivo destino para gravação do pacote não indicado.");
+          "Nenhum arquivo de destino para gravação do pacote indicado.");
     }
 
-    var drive = new ZipDrive(_targetFile, _password, ZipDrive.Mode.Overwrite);
+    var drive = new ZipDrive(_filePath, _password, Mode.Overwrite);
 
     var scripts = _nodes
         .SelectMany(n => n.DescendantsAndSelf<ScriptNode>())
@@ -79,4 +83,5 @@ public class ScriptPacker
       await drive.WriteAllTextAsync(item.Path, content);
     }
   }
+
 }

@@ -87,11 +87,11 @@ public class RepositoryBuilder
         var catalogs = await catalogLoader.LoadCatalogsAsync(drive, encoding);
         repository.Catalogs.AddRange(catalogs);
 
-        if (_dependencyDetectorVisitor != null)
+        if (_dependencyDetectorVisitor is not null)
         {
           await repository.AcceptAsync(_dependencyDetectorVisitor);
         }
-        if (_circularDependencyDetectorVisitor != null)
+        if (_circularDependencyDetectorVisitor is not null)
         {
           repository.Accept(_circularDependencyDetectorVisitor);
         }
@@ -105,7 +105,7 @@ public class RepositoryBuilder
         do
         {
           builder.AppendLine(cause.Message);
-        } while ((cause = cause.InnerException) != null);
+        } while ((cause = cause?.InnerException) is not null);
 
         repository.Faults.Add(Fault.EmitException(ex, builder.ToString()));
       }

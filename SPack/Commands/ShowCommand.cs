@@ -45,7 +45,7 @@ public class ShowCommand : ICommand
 
       try
       {
-        if (node is ScriptNode script && script.FilePath != null)
+        if (node is ScriptNode script && script.FilePath is not null)
         {
           var catalog = script.AncestorsAndSelf<CatalogNode>().FirstOrDefault();
           if (catalog?.Drive is IDrive driveCatalog)

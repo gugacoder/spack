@@ -148,11 +148,11 @@ public class PipelineCommand : ICommand
         return databaseName;
     }
 
-    if (factory?.Connection != null && factory.Query is null)
+    if (factory?.Connection is not null && factory.Query is null)
     {
       var targetConnection = connectionPool.FirstOrDefault(
           c => c.Name == factory.Connection);
-      if (targetConnection != null)
+      if (targetConnection is not null)
       {
         return DetectDatabase(targetConnection, connectionPool);
       }

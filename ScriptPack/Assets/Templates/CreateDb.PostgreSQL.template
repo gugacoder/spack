@@ -1,0 +1,10 @@
+--
+--  Template de criação de banco de dados para PostgreSQL.
+--
+--  O template é usado pelo scriptpack quando solicitado a criação de uma base
+--  de dados do PostgreSQL.
+--  
+--  A variável "{ScriptPack.TargetDb}" é o nome da base de dados a ser criada.
+--
+DO $$ BEGIN RAISE NOTICE 'Criando base de dados {ScriptPack.TargetDb}...'; END $$;
+CREATE DATABASE "{ScriptPack.TargetDb}";

@@ -1,4 +1,5 @@
 using System.Text;
+using ScriptPack.Helpers;
 using ScriptPack.Model;
 using SPack.Commands.Helpers;
 using SPack.Helpers;
@@ -58,12 +59,16 @@ public class MigrateCommand : ICommand
     //
     // Realizando a migração de bases.
     //
+    var contextBuilder = new ContextBuilder();
+    contextBuilder.AddOptions(options);
+    var context = contextBuilder.BuildContext();
+
     foreach (var pipeline in pipelines)
     {
       var databaseMigrator = new DatabaseMigrator
       {
         Pipeline = pipeline,
-        Context = new()
+        Context = context
       };
       RegisterListeners(databaseMigrator, options.Verbose.On);
       await databaseMigrator.MigrateAsync();
@@ -97,7 +102,7 @@ public class MigrateCommand : ICommand
       {
         var cause = args.Exception;
         Console.Error.WriteLine($"[ERRO] {cause.Message}");
-        while ((cause = cause.InnerException) != null)
+        while ((cause = cause?.InnerException) is not null)
         {
           Console.Error.WriteLine($"- {cause.Message}");
         }

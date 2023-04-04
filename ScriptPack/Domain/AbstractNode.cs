@@ -108,14 +108,14 @@ public abstract class AbstractNode : INode
     method = typeof(IAsyncVisitor).GetMethod("VisitAsync",
         new[] { GetType() });
     task = method?.Invoke(visitor, new object[] { this }) as Task;
-    if (task != null) await task;
+    if (task is not null) await task;
 
     foreach (var child in Children())
     {
       method = child.GetType().GetMethod("AcceptAsync",
           new[] { typeof(IAsyncVisitor) });
       task = method?.Invoke(child, new object[] { visitor }) as Task;
-      if (task != null) await task;
+      if (task is not null) await task;
     }
   }
 

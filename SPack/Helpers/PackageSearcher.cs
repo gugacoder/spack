@@ -72,7 +72,7 @@ public class PackageSearcher
         $"Mais de uma versão encontrada para o produto: {productName}");
 
     var version = versions[0];
-    if (moduleName == null) return version;
+    if (moduleName is null) return version;
 
     //
     // SELECIONANDO O MÓDULO
@@ -89,7 +89,7 @@ public class PackageSearcher
         $"Mais de um módulo encontrado para o produto: {productName}");
 
     var module = modules[0];
-    if (packageName == null) return module;
+    if (packageName is null) return module;
 
     //
     // SELECIONANDO O PACOTE

@@ -11,26 +11,6 @@ namespace ScriptPack.FileSystem;
 public class ZipDrive : IDrive
 {
   /// <summary>
-  /// Modos de abertura de arquivo zip.
-  /// </summary>
-  public enum Mode
-  {
-    /// <summary>
-    /// Abre o arquivo zip em modo somente leitura.
-    /// </summary>
-    Read,
-    /// <summary>
-    /// Abre o arquivo zip para leitura e gravação.
-    /// </summary>
-    Writable,
-    /// <summary>
-    /// Abre o arquivo zip para leitura e gravação, sobrescrevendo o arquivo
-    /// existente.
-    /// </summary>
-    Overwrite
-  };
-
-  /// <summary>
   /// Senha padrão utilizada para criptografar o arquivo .zip.
   /// </summary>
   // Password: SPack internal password!
@@ -247,7 +227,7 @@ public class ZipDrive : IDrive
 
     var entries = _zip.Entries
         .Where(e => e.FileName.StartsWith(path,
-            StringComparison.InvariantCultureIgnoreCase))
+            StringComparison.OrdinalIgnoreCase))
         .Where(e => Path.GetFileName(e.FileName).Like(searchPattern));
 
     if (searchOption == SearchOption.AllDirectories)
@@ -330,7 +310,7 @@ public class ZipDrive : IDrive
     path = GetPath(path);
 
     var entry = _zip.Entries.FirstOrDefault(e => e.FileName.Equals(path));
-    return entry != null;
+    return entry is not null;
   }
 
   /// <summary>
@@ -356,7 +336,7 @@ public class ZipDrive : IDrive
     path = GetPath(path);
 
     var entry = _zip.Entries.FirstOrDefault(e => e.FileName.Equals(path));
-    if (entry != null)
+    if (entry is not null)
     {
       _zip.RemoveEntry(entry);
     }
@@ -452,7 +432,7 @@ public class ZipDrive : IDrive
     using var writer = new StreamWriter(stream);
 
     string? line;
-    while ((line = await reader.ReadLineAsync()) != null)
+    while ((line = await reader.ReadLineAsync()) is not null)
     {
       await writer.WriteLineAsync(line);
     }

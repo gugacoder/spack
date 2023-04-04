@@ -95,7 +95,7 @@ public static class ResultSetPrinter
   /// <returns>Uma representação em string do valor formatado.</returns>
   private static string FormatValue(object value, Type dataType)
   {
-    if (value == DBNull.Value || value == null)
+    if (value == DBNull.Value || value is null)
     {
       return "NULL";
     }

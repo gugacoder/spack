@@ -51,7 +51,7 @@ public class ConnectionSelectionBuilder
         from catalog in node.Ancestors<CatalogNode>()
         from connection in catalog.Connections
         select connection
-    ).Distinct();
+    ).Distinct().ToArray();
 
     // Adicionando as conexões pré-definidas.
     predefinedConnections.ForEach(connection =>
@@ -89,8 +89,8 @@ public class ConnectionSelectionBuilder
       var nameProperty = args.FirstOrDefault(p => p.StartsWith("Name="));
       var providerProperty = args.FirstOrDefault(p => p.StartsWith("Provider="));
 
-      if (nameProperty != null) args.Remove(nameProperty);
-      if (providerProperty != null) args.Remove(providerProperty);
+      if (nameProperty is not null) args.Remove(nameProperty);
+      if (providerProperty is not null) args.Remove(providerProperty);
 
       var connectionString = string.Join(";", args);
 

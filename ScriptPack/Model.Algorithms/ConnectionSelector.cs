@@ -57,7 +57,7 @@ internal class ConnectionSelector
         select connection
     ).FirstOrDefault();
 
-    return selectedConnection != null
+    return selectedConnection is not null
         ? new[] { selectedConnection }
         : new ConnectionNode[0];
   }

@@ -93,7 +93,7 @@ public class CommandRunner
           Console.Error.WriteLine("---");
           Console.Error.WriteLine(cause.StackTrace);
           cause = cause.InnerException;
-        } while (cause != null);
+        } while (cause is not null);
       }
     }
   }

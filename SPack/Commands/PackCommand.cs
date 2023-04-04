@@ -82,7 +82,7 @@ public class PackCommand : ICommand
     var allScripts = repository.Descendants<ScriptNode>().ToList();
 
     var scriptPacker = new ScriptPacker();
-    scriptPacker.AddTargetFile(packageFile);
+    scriptPacker.AddTargetZipFile(packageFile);
     scriptPacker.AddPassword(password);
     allScripts.ForEach(scriptPacker.AddScript);
 

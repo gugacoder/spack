@@ -1,7 +1,6 @@
 using System.Data.Common;
 using Npgsql;
 using Microsoft.Data.SqlClient;
-using Microsoft.Data.Sqlite;
 
 namespace ScriptPack.Domain;
 

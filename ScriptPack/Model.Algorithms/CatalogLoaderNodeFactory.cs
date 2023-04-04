@@ -143,7 +143,7 @@ internal class CatalogLoaderNodeFactory
     node ??= (IFileNode)Activator.CreateInstance(type)!;
     node.FilePath = filePath;
 
-    if (parent != null)
+    if (parent is not null)
     {
       AddToParent(parent, node);
     }

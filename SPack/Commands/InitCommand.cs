@@ -54,7 +54,7 @@ public class InitCommand : ICommand
       {
         var cause = args.Exception;
         Console.Error.WriteLine($"[ERRO] {cause.Message}");
-        while ((cause = cause.InnerException) != null)
+        while ((cause = cause?.InnerException) is not null)
         {
           Console.Error.WriteLine($"- {cause.Message}");
         }
