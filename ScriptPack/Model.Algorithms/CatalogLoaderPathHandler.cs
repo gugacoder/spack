@@ -380,8 +380,12 @@ internal class CatalogLoaderPathHandler
         return false;
       });
 
+      // Reverter a lista para que ela comece com o catálogo.
+      ancestorFiles.Reverse();
+
       // Adicionando a própria pasta no final da lista.
       ancestorFiles.Add(folderToCheck);
+
       packageStructures.Add(ancestorFiles);
     }
 

@@ -189,6 +189,11 @@ OPÇÕES
                 spack pack MyPack --password
                 spack pack MyPack --password MyPassword
                 spack pack MyPack --password enc:DgspEQccNB0LFA==
+    -i, --ignore-dependencies
+            Ignora a dependência entre os scripts.
+            Por padrão os scripts são executados em ordem de dependência.
+            Quando dependências são ignoradas os scripts são executados em
+            ordem alfabética de nome.
     -v, --verbose
             Mostra informações adicionais durante a execução.
     -h, --help

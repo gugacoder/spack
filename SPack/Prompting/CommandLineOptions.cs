@@ -141,6 +141,13 @@ public class CommandLineOptions
   public Option Password { get; } = new();
 
   /// <summary>
+  /// Representa a opção 'ignore-dependencies' para ignorar a dependência entre
+  /// os scripts.
+  /// </summary>
+  [Argument(@long: true, 'i')]
+  public Switch IgnoneDependencies { get; } = new();
+
+  /// <summary>
   /// Representa a opção 'encoding' para definir o tipo de codificação dos
   /// scripts.
   /// </summary>

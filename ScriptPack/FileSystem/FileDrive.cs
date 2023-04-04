@@ -16,7 +16,9 @@ public class FileDrive : IDrive
   /// </param>
   public FileDrive(string directory)
   {
-    this.Directory = directory.Replace('\\', '/');
+    directory = directory.Replace('\\', '/');
+    if (!directory.EndsWith('/')) directory += '/';
+    this.Directory = directory;
   }
 
   /// <summary>
@@ -64,7 +66,7 @@ public class FileDrive : IDrive
     {
       var item = paths[i];
       item = item.Replace('\\', '/');
-      item = item[(Directory.Length)..];
+      item = item[(Directory.Length - 1)..];
       paths[i] = item;
     }
     return paths;

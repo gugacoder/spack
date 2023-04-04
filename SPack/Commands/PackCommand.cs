@@ -27,7 +27,10 @@ public class PackCommand : ICommand
   {
     var repositoryUtilityBuilder = new RepositoryUtilityBuilder();
     repositoryUtilityBuilder.AddOptions(options);
-    repositoryUtilityBuilder.AddValidators();
+    if (!options.IgnoneDependencies.On)
+    {
+      repositoryUtilityBuilder.AddValidators();
+    }
 
     var repository = await repositoryUtilityBuilder.BuildRepositoryAsync();
 

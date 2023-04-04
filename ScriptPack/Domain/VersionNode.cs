@@ -11,7 +11,7 @@ public class VersionNode : AbstractFileNode
   /// <summary>
   /// Versão padrão para versões não identificadas.
   /// </summary>
-  public const string UnidentifiedVersion = "0.0.0";
+  public const string UnidentifiedVersion = "no-version";
 
   /// <summary>
   /// Cria uma nova instância da classe VersionNode.
