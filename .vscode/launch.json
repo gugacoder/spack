@@ -20,9 +20,26 @@
         // "list", "**/Replicacao/**",
         // "list", "**/-package.jsonc",
         // "list", "connections",
-        "list", "packages",
+        // "list", "products",
+        // "list", "packages",
         // "show", "**/public.usuario.sql",
-        // "pipeline",
+        
+
+
+        // "list", "packages",
+        "pipeline",
+
+        "-p", "Concentrador:",
+        // "-p", "Api@latest",
+        // "-p", "Api",
+        // "-p", "Api.Legado",
+        // "-p", "Api,Api.Legado",
+
+        // "-p", "Mercadologic/*",
+        // "-p", "Mercadologic/*",
+
+
+
         // "init",
         // "migrate",
         // "validate",

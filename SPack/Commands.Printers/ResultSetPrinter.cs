@@ -1,28 +1,37 @@
 using System.Data;
 using System.Data.Common;
 
-namespace SPack.Commands.Helpers;
+namespace SPack.Commands.Printers;
 
 /// <summary>
 /// Utilitário de impressão de conjuntos de resultados.
 /// </summary>
-public static class ResultSetPrinter
+public class ResultSetPrinter : IPrinter
 {
+  private DbDataReader _reader = null!;
+
+  /// <summary>
+  /// Adiciona um objeto DbDataReader ao conjunto de resultados a serem
+  /// impressos.
+  /// </summary>
+  public ResultSetPrinter AddDbDataReader(DbDataReader reader)
+  {
+    _reader = reader;
+    return this;
+  }
+
   /// <summary>
   /// Método assíncrono para imprimir um conjunto de resultados de um objeto
   /// DbDataReader em uma tabela bem formatada.
   /// </summary>
-  /// <param name="reader">
-  /// O objeto DbDataReader contendo os resultados a serem impressos.
-  /// </param>
-  public static void PrintResultSet(DbDataReader reader)
+  public void Print()
   {
     // Cria um DataSet e carrega os dados do objeto DbDataReader nele
     var dataSet = new DataSet();
-    while (!reader.IsClosed)
+    while (!_reader.IsClosed)
     {
       DataTable dataTable = new DataTable();
-      dataTable.Load(reader);
+      dataTable.Load(_reader);
       dataSet.Tables.Add(dataTable);
     }
 

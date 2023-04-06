@@ -2,6 +2,7 @@ using System.Text;
 using ScriptPack.Helpers;
 using ScriptPack.Model;
 using SPack.Commands.Helpers;
+using SPack.Commands.Printers;
 using SPack.Helpers;
 using SPack.Prompting;
 
@@ -121,7 +122,7 @@ public class MigrateCommand : ICommand
         Console.WriteLine(args.Script.Path);
 
     databaseMigrator.OnResultSet += (sender, args) =>
-        ResultSetPrinter.PrintResultSet(args.Result);
+        new ResultSetPrinter().AddDbDataReader(args.Result).Print();
 
   }
 }

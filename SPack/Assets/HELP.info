@@ -22,6 +22,7 @@ AÇÕES
             --select-connection NOME
             --search CAMINHO
             --built-in
+            --verbose
     show CAMINHO
         Exibe o conteúdo de objetos do catálogo de scripts.
         Opções

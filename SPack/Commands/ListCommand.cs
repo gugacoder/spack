@@ -8,6 +8,7 @@ using SPack.Helpers;
 using ScriptPack.Helpers;
 using SPack.Prompting;
 using SPack.Commands.Helpers;
+using SPack.Commands.Printers;
 
 namespace SPack.Commands;
 
@@ -35,6 +36,13 @@ public class ListCommand : ICommand
       "package" => "package",
       _ => "path"
     };
+
+    // Removendo o critério de pesquisa da opção caso seja uma dessas reservadas
+    // pelo comando list.
+    if (outputType != "path")
+    {
+      options.List.Value = "";
+    }
 
     var repositoryUtilityBuilder = new RepositoryUtilityBuilder();
     repositoryUtilityBuilder.AddOptions(options);
@@ -79,118 +87,15 @@ public class ListCommand : ICommand
     }
 
     // Imprimindo os itens dos catálogos.
-    if (outputType == "connection")
-    {
-      PrintConnections(nodes);
-      return;
-    }
-    if (outputType == "product")
-    {
-      PrintProducts(nodes);
-      return;
-    }
-    if (outputType == "package")
-    {
-      PrintPackages(nodes);
-      return;
-    }
-    PrintPaths(nodes);
-  }
+    var nodePrinter = new NodePrinter();
 
-  /// <summary>
-  /// Lista informação sobre as conexões pré-configuradas.
-  /// </summary>
-  /// <param name="nodes">
-  /// Lista de nodos selecionados.
-  /// </param>
-  private void PrintConnections(List<INode> nodes)
-  {
-    var items = (
-        from connection in nodes.OfType<ConnectionNode>()
-        orderby connection.Name
-        select (connection.Name, connection.Provider)
-    ).ToList();
+    if (outputType == "connection") nodePrinter.AddTemplate<ConnectionNode>();
+    if (outputType == "product") nodePrinter.AddTemplate<VersionNode>();
+    if (outputType == "package") nodePrinter.AddTemplate<PackageNode>();
 
-    // Calcula o tamanho de cada coluna
-    int nameColumnWidth = items.Max(x => x.Name.Length);
-    int providerColumnWidth = items.Max(x => x.Provider.Length);
-
-    // Imprime as propriedades
-    foreach (var item in items)
-    {
-      Console.WriteLine(
-          $"{item.Name.PadRight(nameColumnWidth)}  " +
-          $"{item.Provider.PadRight(providerColumnWidth)}"
-          );
-    }
-
-    Console.Out.WriteLine($"Total: {items.Count}");
-  }
-
-  /// <summary>
-  /// Lista os nomes dos produtos e suas versões dentre os nodos indicados.
-  /// </summary>
-  /// <param name="nodes">
-  /// Lista de nodos selecionados.
-  /// </param>
-  private void PrintProducts(List<INode> nodes)
-  {
-    var items = (
-        from version in nodes.OfType<VersionNode>()
-        let product = version.Ancestor<ProductNode>()!
-        let name = $"{product.Name}/{version.Name}"
-        orderby name
-        select name
-    ).ToList();
-    foreach (var item in items)
-    {
-      Console.Out.WriteLine(item);
-    }
-    Console.Out.WriteLine($"Total: {items.Count}");
-  }
-
-  /// <summary>
-  /// Lista os nomes dos pacotes entre os nodos indicados.
-  /// </summary>
-  /// <param name="nodes">
-  /// Lista de nodos selecionados.
-  /// </param>
-  private void PrintPackages(List<INode> nodes)
-  {
-    var items = (
-        from package in nodes.OfType<PackageNode>()
-        let modules = package.Ancestors<ModuleNode>()
-        let version = package.Ancestor<VersionNode>()!
-        let product = package.Ancestor<ProductNode>()!
-        let moduleNames = string.Join("", modules.Select(x => $"/{x.Name}"))
-        let name = $"{product.Name}/{version.Name}{moduleNames}/{package.Name}"
-        orderby name
-        select name
-    ).ToList();
-    foreach (var item in items)
-    {
-      Console.Out.WriteLine(item);
-    }
-    Console.Out.WriteLine($"Total: {items.Count}");
-  }
-
-  /// <summary>
-  /// Imprime todos os caminhos dos nodos indicados.
-  /// </summary>
-  /// <param name="nodes">
-  /// Lista de nodos selecionados.
-  /// </param>
-  private void PrintPaths(List<INode> nodes)
-  {
-    var paths = nodes
-        .Except(nodes.OfType<ConnectionStringFactoryNode>())
-        .Select(x => x.Path)
-        .OrderBy(x => x, new PathComparer())
-        .ToList();
-    foreach (var node in paths)
-    {
-      Console.Out.WriteLine(node);
-    }
-    Console.Out.WriteLine($"Total: {paths.Count}");
+    nodePrinter
+        .AddNodes(nodes)
+        .SetVerbose(options.Verbose.On)
+        .Print();
   }
 }

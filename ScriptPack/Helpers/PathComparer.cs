@@ -38,22 +38,19 @@ public class PathComparer : IComparer<string?>
     if (path2 is null)
       return 1;
 
-    var path1Parts = path1.Split('/');
-    var path2Parts = path2.Split('/');
+    var path1Parts = path1.Split('/', StringSplitOptions.RemoveEmptyEntries);
+    var path2Parts = path2.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
     for (int i = 0; i < Math.Min(path1Parts.Length, path2Parts.Length); i++)
     {
       var part1 = path1Parts[i];
       var part2 = path2Parts[i];
 
-      if (part1 == part2)
-        continue;
-
-      if (part1.Contains('.') && !part2.Contains('.'))
-        return -1;
-
-      if (!part1.Contains('.') && part2.Contains('.'))
-        return 1;
+      if (part1 == part2) continue;
+      if (part1 == "." && part2 != ".") return -1;
+      if (part1 != "." && part2 == ".") return 1;
+      if (part1.StartsWith("..") && !part2.StartsWith("..")) return -1;
+      if (!part1.StartsWith("..") && part2.StartsWith("..")) return 1;
 
       return string.Compare(part1, part2, StringComparison.OrdinalIgnoreCase);
     }
